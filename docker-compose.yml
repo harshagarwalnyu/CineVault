@@ -1,0 +1,88 @@
+services:
+  # Main API Service
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: development
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8001:8000"
+    environment:
+      - SURREALDB_URL=ws://surrealdb:8000/rpc
+      - SURREALDB_USER=root
+      - SURREALDB_PASS=root
+      - SURREALDB_NS=movies
+      - SURREALDB_DB=recommender
+      - REDIS_URL=redis://redis:6379
+      - AUTO_INIT_DB=true
+      - USE_MOCK_DATA=true
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PHD_SECRET_KEY=${PHD_SECRET_KEY}
+    depends_on:
+      surrealdb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app/backend
+          ignore:
+            - "**/__pycache__"
+        - action: rebuild
+          path: pyproject.toml
+        - action: rebuild
+          path: uv.lock
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    ports:
+      - "3002:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8001
+      - API_URL=http://api:8000
+      - AUTH_SECRET=${AUTH_SECRET:-supersecretcomplexstring12345}
+      - NEXTAUTH_URL=http://localhost:3002
+      - AUTH_TRUST_HOST=true
+    depends_on:
+      - api
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          ignore:
+            - node_modules/
+            - .next/
+        - action: rebuild
+          path: ./frontend/package.json
+
+  # SurrealDB (Unified Graph & Vector Database)
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    ports:
+      - "8000:8000"
+    command: start --log trace --user root --pass root file:/data/database.db
+    volumes:
+      - surrealdb_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis (Caching & Task Queue)
+  redis:
+    image: redis:alpine
+    volumes:
+      - redis_data:/data
+
+volumes:
+  surrealdb_data:
+  redis_data:

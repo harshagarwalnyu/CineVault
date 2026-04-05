@@ -1,0 +1,81 @@
+[project]
+name = "movies-recommender-nebula"
+version = "0.1.0"
+description = "Next-generation Movie Recommendation Engine (Project NEBULA)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "groq>=0.9.0",
+    "langchain-groq>=0.2.4",
+    "langgraph>=0.2.74",
+    "sqlmodel>=0.0.22",
+    "sentence-transformers>=3.4.1",
+    "qdrant-client>=1.13.2",
+    "fastapi>=0.115.8",
+    "uvicorn[standard]>=0.34.0",
+    "pydantic>=2.10.6",
+    "pydantic-settings>=2.7.1",
+    "python-multipart>=0.0.20",
+    "pandas>=2.2.3",
+    "numpy>=2.2.2",
+    "scikit-learn>=1.6.1",
+    "scipy>=1.15.1",
+    "torch>=2.6.0",
+    "requests>=2.32.3",
+    "python-dotenv>=1.0.1",
+    "psycopg2-binary>=2.9.10",
+    "asyncpg>=0.30.0",
+    "tiktoken>=0.9.0",
+    "redis>=5.2.1",
+    "httpx>=0.28.1",
+    "opencv-python-headless>=4.11.0.86",
+    "networkx>=3.4.2",
+    "python-louvain>=0.16",
+    "Pillow<11.0.0",
+    "transformers>=4.48.3",
+    "beautifulsoup4>=4.13.3",
+    "tqdm>=4.67.1",
+    "fastembed>=0.5.1",
+    "cohere>=5.13.11",
+    "flashrank>=0.2.9",
+    "elasticsearch>=8.17.1",
+    "aiohttp>=3.11.12",
+    "slowapi>=0.1.9",
+    "alembic>=1.14.1",
+    "surrealdb>=1.0.8",
+    "google-genai>=1.70.0",
+    "langchain-google-genai>=4.2.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov",
+    "pytest-mock",
+    "ruff>=0.6",
+    "mypy",
+    "bandit",
+    "playwright",
+    "hypothesis",
+]
+
+[tool.uv]
+index = [
+    { name = "pytorch-cpu", url = "https://download.pytorch.org/whl/cpu", explicit = true },
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+addopts = "--strict-markers -v --cov=backend --cov-report=term-missing"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "e2e: End-to-end tests",
+    "slow: Slow running tests",
+]

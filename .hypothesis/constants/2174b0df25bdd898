@@ -1,0 +1,4 @@
+# file: /home/bossman/projects/Movies-Recommender/backend/config.py
+# hypothesis_version: 6.151.10
+
+[0.05, 0.2, 0.3, 0.4, 0.6, 300, '.env', 'access_token', 'development', 'ignore', 'nebula_dna_manifold', 'utf-8']

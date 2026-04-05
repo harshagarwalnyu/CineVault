@@ -1,0 +1,4 @@
+# file: /home/bossman/projects/Movies-Recommender/backend/services/recommendation_engine_service/engines/vector_engine.py
+# hypothesis_version: 6.151.10
+
+[0.0, 0.99, 100, 1024, 20000, ': ', ':memory:', 'BAAI/bge-m3', 'Embedding', 'doc', 'genres', 'id', 'in_memory', 'limit', 'overview', 'remote', 'score', 'search_document: ', 'title']
