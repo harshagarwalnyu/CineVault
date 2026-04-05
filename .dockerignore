@@ -1,0 +1,72 @@
+# Ignore virtual environments
+**/.venv/
+**/.venv_linux/
+**/venv/
+**/env/
+
+# Ignore node modules and build artifacts
+**/node_modules/
+**/frontend/node_modules/
+**/.next/
+**/frontend/.next/
+**/frontend/out/
+**/frontend/build/
+
+# Ignore local data and database files
+**/data/
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/*.sqlite3
+**/*.csv
+**/*.tsv
+**/*.gz
+**/*.pkl
+**/*.pth
+**/*.onnx
+
+# Ignore logs and temp files
+**/*.log
+**/*.out
+**/*.tmp
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.hypothesis/
+**/.coverage
+**/htmlcov/
+
+# Ignore IDE and OS files
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+**/.DS_Store
+**/Thumbs.db
+
+# Ignore git
+**/.git/
+**/.gitignore
+
+# Ignore build-related
+**/docker-compose.yml*
+**/Dockerfile*
+**/.dockerignore
+**/Makefile
+
+# Ignore plans and docs
+**/plans/
+**/docs/
+**/AI-Best-Practices/
+**/PERFORMANCE_PROTOCOL.md
+**/SECURITY_PROTOCOL.md
+**/README.md
+**/walkthrough.md
+**/task.md
+**/implementation_plan.md
+
+# Keep the bootstrap movie dataset available to the backend image.
+!data/
+!data/movies.csv
+

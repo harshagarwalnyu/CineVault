@@ -1,0 +1,4 @@
+# file: /home/bossman/projects/Movies-Recommender/backend/database.py
+# hypothesis_version: 6.151.10
+
+[5.0, 100, 1800, 200000, 'DB Stats:', 'SELECT id FROM users', 'SERIAL PRIMARY KEY', '__main__', 'append', 'budget', 'cast', 'check_same_thread', 'connect_args', 'data/movies.csv', 'director', 'e', 'genres', 'homepage', 'id', 'keywords', 'm', 'max_overflow', 'movies', 'overview', 'p', 'pool_pre_ping', 'pool_recycle', 'pool_size', 'pool_timeout', 'postgresql', 'r', 'ratings', 'release_date', 'runtime', 'sha256', 'sqlite', 'sqlite:///', 'tagline', 'title', 'u', 'users', 'utf-8', 'vote_average', 'vote_count', '✓ Ratings generated']

@@ -1,0 +1,4 @@
+# file: /home/bossman/projects/Movies-Recommender/backend/services/recommendation_engine_service/engines/recommendation.py
+# hypothesis_version: 6.151.10
+
+[0.0, 0.15, 0.2, 0.3, 0.4, 0.5, 0.7, 1.0, 5.0, 7.5, 100, 300, 5000, 10000, ', ', '; ', 'Highly rated', 'Related storyline', 'You might enjoy this', 'average_rating', 'cast', 'coerce', 'collaborative_score', 'combined_features', 'common_movies', 'content_score', 'director', 'en', 'english', 'genre_list_detailed', 'genres', 'hybrid_score', 'id', 'imdb_rating', 'keywords', 'movie_count', 'movie_id', 'name', 'original_language', 'overview', 'poster_path', 'rating', 'reason', 'rec_cache:*', 'reddit_sentiment', 'release_date', 'rt_audience_score', 'rt_critic_score', 'runtime', 'similarity', 'tagline', 'title', 'unknown', 'user_id', 'vote_average', 'vote_count', 'weighted_rating']

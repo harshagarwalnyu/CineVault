@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend Checks
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite:///data/movies_recommender.db
+      REDIS_URL: redis://localhost:6379
+      ELASTICSEARCH_URL: http://localhost:9200
+      PHD_SECRET_KEY: ci-secret-key
+      CORS_ALLOW_ORIGINS: http://localhost:3002,http://127.0.0.1:3002
+      AUTO_INIT_DB: false
+      USE_MOCK_DATA: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Ruff
+        run: uv run ruff check backend
+
+      - name: Mypy
+        run: uv run mypy backend
+
+      - name: Unit and integration tests
+        run: uv run pytest -m "unit or integration" --cov=backend --cov-report=term-missing --maxfail=1
+
+  frontend:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Build
+        run: bun run build
+
+  e2e-smoke:
+    name: Frontend E2E Smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install Python dependencies
+        run: uv sync --dev
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          bun install
+
+      - name: Start frontend server
+        run: |
+          cd frontend
+          bun run dev -- --hostname 0.0.0.0 --port 3002 > /tmp/frontend.log 2>&1 &
+
+      - name: Wait for frontend readiness
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3002 >/dev/null; then
+              echo "Frontend is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Frontend failed to start"
+          cat /tmp/frontend.log
+          exit 1
+
+      - name: Run E2E smoke test
+        env:
+          FRONTEND_BASE_URL: http://127.0.0.1:3002
+        run: uv run pytest backend/tests/test_e2e_frontend.py::test_homepage_loads -m e2e -q
