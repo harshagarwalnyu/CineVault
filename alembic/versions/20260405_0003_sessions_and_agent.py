@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "0003_sessions_agent"
-down_revision = "0002_movielens"
+down_revision = "20260405_0002"
 branch_labels = None
 depends_on = None
 
