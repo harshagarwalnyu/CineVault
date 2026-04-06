@@ -189,7 +189,7 @@ class MovieAgent:
                 temperature=0.2,
             )
             self.agent_executor = create_react_agent(
-                self.llm, self.tools, messages_modifier=self._system_message()
+                self.llm, self.tools, prompt=self._system_message()
             )
 
     @staticmethod
