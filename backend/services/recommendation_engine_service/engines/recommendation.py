@@ -256,7 +256,7 @@ class EnhancedRecommendationEngine:
         self.genre_list = [g["name"] for g in self.genre_list_detailed]
 
     def _load_ratings(self, conn):
-        """Fetch rating data."""
+        """Fetch rating data, with MovieLens fallback."""
         try:
             self.ratings_df = pd.read_sql_query(
                 "SELECT user_id, movie_id, rating FROM ratings", conn
@@ -264,6 +264,22 @@ class EnhancedRecommendationEngine:
         except Exception as e:
             logger.error(f"Error loading ratings: {e}")
             self.ratings_df = pd.DataFrame()
+
+        # Fallback: load MovieLens ratings if regular ratings are sparse
+        if self.ratings_df is None or len(self.ratings_df) < 100:
+            try:
+                ml_ratings = pd.read_sql_query(
+                    "SELECT ml_user_id as user_id, movie_id, rating * 2 as rating FROM ml_ratings LIMIT 5000000",
+                    conn,
+                )
+                if not ml_ratings.empty:
+                    if self.ratings_df is not None and not self.ratings_df.empty:
+                        self.ratings_df = pd.concat([self.ratings_df, ml_ratings], ignore_index=True)
+                    else:
+                        self.ratings_df = ml_ratings
+                    logger.info(f"Loaded {len(ml_ratings)} MovieLens ratings (normalized 0.5-5.0 -> 1-10 scale)")
+            except Exception as e:
+                logger.warning(f"MovieLens ratings not available: {e}")
 
     def train(self) -> "EnhancedRecommendationEngine":
         """Train all recommendation models."""

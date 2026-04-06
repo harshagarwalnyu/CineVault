@@ -80,6 +80,108 @@ class NebulaIngestPipeline:
         )
 
 
+    def process_batch(self, movie_ids: list):
+        """Process multiple movies and store DNA in Qdrant."""
+        from sqlmodel import text as sql_text
+        from backend.database import engine
+        from backend.config import settings
+
+        results = []
+        with engine.connect() as conn:
+            for movie_id in movie_ids:
+                row = conn.execute(
+                    sql_text("SELECT id, title, trailer_youtube_key FROM movies WHERE id = :mid"),
+                    {"mid": movie_id},
+                ).fetchone()
+                if not row:
+                    continue
+
+                trailer_key = row[2] if len(row) > 2 else None
+                if trailer_key:
+                    features = self.extractor.extract_from_trailer(trailer_key)
+                else:
+                    features = self.extractor.get_mock_features()
+
+                features_torch = {k: torch.from_numpy(v).unsqueeze(0) for k, v in features.items()}
+                with torch.no_grad():
+                    dna = self.encoder(features_torch).squeeze(0).cpu().numpy()
+
+                results.append({"id": row[0], "title": row[1], "dna": dna.tolist()})
+
+        # Store in Qdrant
+        try:
+            from qdrant_client import QdrantClient
+            from qdrant_client.models import Distance, VectorParams, PointStruct
+
+            client = QdrantClient(url=settings.QDRANT_URL)
+            collection = settings.NEBULA_COLLECTION_NAME
+
+            # Ensure collection exists
+            try:
+                client.get_collection(collection)
+            except Exception:
+                client.create_collection(
+                    collection_name=collection,
+                    vectors_config=VectorParams(size=128, distance=Distance.COSINE),
+                )
+
+            points = [
+                PointStruct(id=r["id"], vector=r["dna"], payload={"title": r["title"], "movie_id": r["id"]})
+                for r in results
+            ]
+            if points:
+                client.upsert(collection_name=collection, points=points)
+
+        except Exception as e:
+            print(f"Qdrant storage failed: {e}")
+
+        return results
+
+    def get_dna(self, movie_id: int) -> Optional[dict]:
+        """Get stored DNA for a movie from Qdrant."""
+        try:
+            from qdrant_client import QdrantClient
+            from backend.config import settings
+
+            client = QdrantClient(url=settings.QDRANT_URL)
+            result = client.retrieve(collection_name=settings.NEBULA_COLLECTION_NAME, ids=[movie_id])
+            if result:
+                return {"movie_id": movie_id, "vector": result[0].vector, "payload": result[0].payload}
+        except Exception:
+            pass
+        return None
+
+    def find_visual_similar(self, movie_id: int, k: int = 10) -> list:
+        """Find visually similar movies using DNA vectors."""
+        try:
+            from qdrant_client import QdrantClient
+            from backend.config import settings
+
+            client = QdrantClient(url=settings.QDRANT_URL)
+            results = client.recommend(
+                collection_name=settings.NEBULA_COLLECTION_NAME,
+                positive=[movie_id],
+                limit=k,
+            )
+            return [
+                {"movie_id": r.id, "score": r.score, "title": r.payload.get("title", "")}
+                for r in results
+            ]
+        except Exception:
+            return []
+
+
+# Singleton
+_pipeline = None
+
+
+def get_nebula_pipeline():
+    global _pipeline
+    if _pipeline is None:
+        _pipeline = NebulaIngestPipeline()
+    return _pipeline
+
+
 if __name__ == "__main__":
     pipeline = NebulaIngestPipeline()
     pipeline.run_ingest(limit=5)

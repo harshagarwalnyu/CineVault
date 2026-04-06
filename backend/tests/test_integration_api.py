@@ -3,16 +3,15 @@ from unittest.mock import patch
 import pytest
 from fastapi import HTTPException
 
-from backend.app.main import (
+from backend.app.routers.health import health_check
+from backend.app.routers.movies import get_movie, get_trending
+from backend.app.routers.recommendations import (
     discover_movies,
-    get_movie,
     get_recommendations,
     get_similar_movies,
-    get_trending,
-    health_check,
-    login_user,
-    search_movies,
 )
+from backend.app.routers.search import search_movies
+from backend.app.routers.users import login_user
 from backend.app.schemas import DiscoveryRequest, UserLogin
 
 
@@ -27,10 +26,10 @@ async def test_health_check(mock_engine):
 async def test_login_success():
     with (
         patch(
-            "backend.app.main.authenticate_user",
+            "backend.app.routers.users.authenticate_user",
             return_value={"id": 1, "username": "user_1", "email": "user1@example.com"},
         ),
-        patch("backend.app.main.touch_user_last_login") as touch_last_login,
+        patch("backend.app.routers.users.touch_user_last_login") as touch_last_login,
     ):
         response = await login_user(
             UserLogin(username="user_1", password="sample-user-1")
@@ -43,7 +42,7 @@ async def test_login_success():
 
 @pytest.mark.integration
 async def test_login_invalid_credentials():
-    with patch("backend.app.main.authenticate_user", return_value=None):
+    with patch("backend.app.routers.users.authenticate_user", return_value=None):
         with pytest.raises(HTTPException) as exc_info:
             await login_user(UserLogin(username="user_1", password="wrong-password"))
 

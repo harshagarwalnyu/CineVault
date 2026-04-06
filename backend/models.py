@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy import Column, DateTime, BigInteger, Text, UniqueConstraint
+from sqlalchemy import Column, DateTime, BigInteger, Text, UniqueConstraint, String
 from sqlalchemy.sql import func
 
 
@@ -46,6 +46,15 @@ class Movie(SQLModel, table=True):
     tmdb_id: Optional[int] = Field(default=None)
     imdb_id: Optional[str] = Field(default=None, unique=True, index=True)
     homepage: Optional[str] = Field(default=None)
+    # MovieLens enrichment columns
+    metacritic_score: Optional[int] = Field(default=None)
+    box_office_worldwide: Optional[int] = Field(
+        default=None, sa_column=Column(BigInteger, nullable=True)
+    )
+    awards_text: Optional[str] = Field(default=None, sa_column=Column(Text))
+    trailer_youtube_key: Optional[str] = Field(default=None)
+    streaming_providers: Optional[str] = Field(default=None, sa_column=Column(Text))
+    certification: Optional[str] = Field(default=None)
     created_at: Optional[datetime] = Field(
         default=None,
         sa_column=Column(DateTime, server_default=func.now()),
@@ -59,6 +68,9 @@ class Movie(SQLModel, table=True):
     ratings: list["Rating"] = Relationship(back_populates="movie")
     watch_history: list["WatchHistory"] = Relationship(back_populates="movie")
     user_favorites: list["UserFavorite"] = Relationship(back_populates="movie")
+    ml_ratings: list["MLRating"] = Relationship(back_populates="movie")
+    ml_tags: list["MLTag"] = Relationship(back_populates="movie")
+    id_mappings: list["MovieIdMapping"] = Relationship(back_populates="movie")
 
     def __repr__(self) -> str:
         return f"<Movie(id={self.id}, title='{self.title}')>"
@@ -155,3 +167,80 @@ class UserFavorite(SQLModel, table=True):
 
     def __repr__(self) -> str:
         return f"<UserFavorite(user_id={self.user_id}, movie_id={self.movie_id})>"
+
+
+# ---------------------------------------------------------------------------
+# MovieLens 32M integration models
+# ---------------------------------------------------------------------------
+
+
+class MLRating(SQLModel, table=True):
+    """MovieLens user rating (0.5-5.0 scale, half-star increments)."""
+
+    __tablename__ = "ml_ratings"
+
+    id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BigInteger, primary_key=True, autoincrement=True),
+    )
+    ml_user_id: int = Field(nullable=False, index=True)
+    movie_id: Optional[int] = Field(default=None, foreign_key="movies.id", index=True)
+    rating: float = Field(nullable=False)
+    timestamp: Optional[int] = Field(
+        default=None, sa_column=Column(BigInteger, nullable=True)
+    )
+
+    movie: Optional["Movie"] = Relationship(back_populates="ml_ratings")
+
+    def __repr__(self) -> str:
+        return (
+            f"<MLRating(ml_user_id={self.ml_user_id}, "
+            f"movie_id={self.movie_id}, rating={self.rating})>"
+        )
+
+
+class MovieIdMapping(SQLModel, table=True):
+    """Maps MovieLens movie IDs to TMDB/IMDB/internal IDs via links.csv."""
+
+    __tablename__ = "movie_id_mapping"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    ml_movie_id: int = Field(nullable=False, unique=True)
+    tmdb_id: Optional[int] = Field(default=None)
+    imdb_id: Optional[str] = Field(default=None, sa_column=Column(Text))
+    internal_movie_id: Optional[int] = Field(
+        default=None, foreign_key="movies.id"
+    )
+
+    movie: Optional["Movie"] = Relationship(back_populates="id_mappings")
+
+    def __repr__(self) -> str:
+        return (
+            f"<MovieIdMapping(ml={self.ml_movie_id}, "
+            f"tmdb={self.tmdb_id}, internal={self.internal_movie_id})>"
+        )
+
+
+class MLTag(SQLModel, table=True):
+    """MovieLens user-generated tag for a movie."""
+
+    __tablename__ = "ml_tags"
+
+    id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BigInteger, primary_key=True, autoincrement=True),
+    )
+    ml_user_id: int = Field(nullable=False, index=True)
+    movie_id: Optional[int] = Field(default=None, foreign_key="movies.id", index=True)
+    tag: str = Field(sa_column=Column(Text, nullable=False))
+    timestamp: Optional[int] = Field(
+        default=None, sa_column=Column(BigInteger, nullable=True)
+    )
+
+    movie: Optional["Movie"] = Relationship(back_populates="ml_tags")
+
+    def __repr__(self) -> str:
+        return (
+            f"<MLTag(ml_user_id={self.ml_user_id}, "
+            f"movie_id={self.movie_id}, tag='{self.tag}')>"
+        )

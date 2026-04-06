@@ -5,7 +5,10 @@ Backend smoke tests for critical endpoint behavior.
 import pytest
 from fastapi import HTTPException
 
-from backend.app.main import app, get_movie, health_check, search_movies
+from backend.app.main import app
+from backend.app.routers.health import health_check
+from backend.app.routers.movies import get_movie
+from backend.app.routers.search import search_movies
 
 
 @pytest.mark.integration
