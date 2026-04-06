@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     REC_POPULARITY_WEIGHT: float = 0.05
     REC_DIRECTOR_BONUS: float = 0.2
 
+    # MovieLens 32M Integration
+    MOVIELENS_DATA_PATH: str = Field(default="data/movielens")
+    MOVIELENS_BATCH_SIZE: int = Field(default=50000)
+    TMDB_RATE_LIMIT_PER_SEC: int = Field(default=40)
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
@@ -100,3 +105,6 @@ REC_QUALITY_WEIGHT = settings.REC_QUALITY_WEIGHT
 REC_COLLAB_WEIGHT = settings.REC_COLLAB_WEIGHT
 REC_POPULARITY_WEIGHT = settings.REC_POPULARITY_WEIGHT
 REC_DIRECTOR_BONUS = settings.REC_DIRECTOR_BONUS
+MOVIELENS_DATA_PATH = settings.MOVIELENS_DATA_PATH
+MOVIELENS_BATCH_SIZE = settings.MOVIELENS_BATCH_SIZE
+TMDB_RATE_LIMIT_PER_SEC = settings.TMDB_RATE_LIMIT_PER_SEC

@@ -13,6 +13,26 @@ class CinematographicFeatureExtractor:
     def __init__(self, sample_rate: int = 24):
         self.sample_rate = sample_rate  # Process every Nth frame for speed
 
+    def extract_from_trailer(self, youtube_key: str) -> Dict[str, np.ndarray]:
+        """Download trailer via yt-dlp and extract real features."""
+        import subprocess
+        import tempfile
+
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                output = os.path.join(tmpdir, "trailer.mp4")
+                result = subprocess.run(
+                    ["yt-dlp", "-f", "worst[ext=mp4]", "--no-playlist",
+                     "-o", output, f"https://www.youtube.com/watch?v={youtube_key}"],
+                    capture_output=True, text=True, timeout=120,
+                )
+                if result.returncode == 0 and os.path.exists(output):
+                    return self.extract_features(output)
+        except Exception as e:
+            print(f"yt-dlp extraction failed for {youtube_key}: {e}")
+
+        return self.get_mock_features()
+
     def extract_features(self, video_path: str) -> Dict[str, np.ndarray]:
         """
         Extracts features from a video file.

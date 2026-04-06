@@ -45,6 +45,8 @@ dependencies = [
     "surrealdb>=1.0.8",
     "google-genai>=1.70.0",
     "langchain-google-genai>=4.2.1",
+    "xgboost>=2.1.0",
+    "yt-dlp>=2024.1.0",
 ]
 
 [dependency-groups]

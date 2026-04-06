@@ -131,6 +131,8 @@ class UserLogin(BaseModel):
 class AgentInput(BaseModel):
     input: str
     chat_history: List[dict] = Field(default_factory=list)
+    session_id: Optional[str] = None
+    user_id: Optional[int] = None
 
 
 class UserStats(BaseModel):
