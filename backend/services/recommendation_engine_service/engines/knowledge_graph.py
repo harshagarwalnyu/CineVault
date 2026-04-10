@@ -10,6 +10,11 @@ import pandas as pd
 from typing import List, Dict
 import community.community_louvain as community_louvain  # python-louvain
 
+from backend.services.recommendation_engine_service.engines.recommendation import (
+    normalize_genres,
+    split_genres,
+)
+
 
 class KnowledgeGraph:
     def __init__(self):
@@ -38,15 +43,16 @@ class KnowledgeGraph:
             )
 
             # Add Director
-            if row["director"]:
-                director_id = f"director:{row['director'].strip()}"
-                self.graph.add_node(director_id, type="director", name=row["director"])
+            if pd.notna(row["director"]) and isinstance(row["director"], str) and row["director"].strip():
+                director_name = row["director"].strip()
+                director_id = f"director:{director_name}"
+                self.graph.add_node(director_id, type="director", name=director_name)
                 self.graph.add_edge(
                     movie_id, director_id, weight=1.0, relation="directed_by"
                 )
 
             # Add Cast (Top 3)
-            if row["cast"]:
+            if pd.notna(row["cast"]) and isinstance(row["cast"], str) and row["cast"].strip():
                 actors = [a.strip() for a in row["cast"].split(",")[:3]]
                 for actor in actors:
                     actor_id = f"actor:{actor}"
@@ -56,8 +62,8 @@ class KnowledgeGraph:
                     )
 
             # Add Genres
-            if row["genres"]:
-                genres = [g.strip() for g in row["genres"].split()]
+            if pd.notna(row["genres"]) and row["genres"]:
+                genres = split_genres(normalize_genres(str(row["genres"])))
                 for genre in genres:
                     genre_id = f"genre:{genre}"
                     self.graph.add_node(genre_id, type="genre", name=genre)

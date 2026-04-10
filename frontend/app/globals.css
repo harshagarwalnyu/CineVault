@@ -1,0 +1,287 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg: #09090b;
+  --color-surface: rgba(17, 17, 21, 0.84);
+  --color-surface-strong: rgba(8, 8, 10, 0.92);
+  --color-foreground: #f8f1e5;
+  --color-muted: #c0b39b;
+  --color-line: rgba(255, 255, 255, 0.09);
+  --color-gold: #f2c14f;
+  --color-crimson: #8f2d2d;
+  --shadow-soft: 0 28px 80px rgba(0, 0, 0, 0.28);
+  --radius-card: 1.75rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: auto;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--color-foreground);
+  background:
+    radial-gradient(circle at top, rgba(242, 193, 79, 0.08), transparent 24%),
+    radial-gradient(circle at 80% 10%, rgba(160, 71, 71, 0.12), transparent 28%),
+    linear-gradient(180deg, #0d0d10 0%, #09090b 30%, #08080a 100%);
+  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.08;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 120px 120px;
+  mask-image: radial-gradient(circle at center, black, transparent 78%);
+}
+
+::selection {
+  background: rgba(242, 193, 79, 0.28);
+  color: #fffaf0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(242, 193, 79, 0.58), rgba(143, 45, 45, 0.45));
+}
+
+.page-frame {
+  position: relative;
+  z-index: 1;
+  width: min(1400px, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.display-title {
+  font-family: "Impact", "Haettenschweiler", "Arial Narrow Bold", sans-serif;
+  font-size: clamp(4.5rem, 12vw, 9.5rem);
+  line-height: 0.9;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+
+.surface-panel {
+  position: relative;
+  border: 1px solid var(--color-line);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
+    var(--color-surface);
+  border-radius: 2rem;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(20px);
+}
+
+.surface-panel::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.poster-card {
+  position: relative;
+  border-radius: var(--radius-card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.button-primary,
+.button-secondary,
+.segmented-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border-radius: 999px;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.button-primary {
+  border: 1px solid rgba(242, 193, 79, 0.28);
+  background: linear-gradient(135deg, rgba(242, 193, 79, 0.92), rgba(204, 139, 51, 0.92));
+  color: #120d09;
+  font-weight: 800;
+}
+
+.button-primary:hover {
+  transform: translateY(-1px);
+}
+
+.button-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-foreground);
+  font-weight: 700;
+}
+
+.button-secondary:hover,
+.nav-link:hover,
+.segmented-button:hover {
+  border-color: rgba(242, 193, 79, 0.35);
+  color: var(--color-foreground);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.55rem 0.95rem;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.segmented-button {
+  flex: 1;
+  min-height: 3rem;
+  padding-inline: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.segmented-button-active {
+  border-color: rgba(242, 193, 79, 0.34);
+  background: rgba(242, 193, 79, 0.12);
+  color: var(--color-foreground);
+}
+
+/* ── Skip-to-content link (Krug: accessibility, Don't Make Me Think) ── */
+.skip-to-content {
+  position: fixed;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(242, 193, 79, 0.35);
+  background: rgba(12, 12, 14, 0.95);
+  color: var(--color-gold);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  backdrop-filter: blur(20px);
+  transition: top 200ms ease;
+}
+
+.skip-to-content:focus {
+  top: 1rem;
+}
+
+/* ── Focus-visible ring (WCAG 2.2 / Laws of UX: feedback) ── */
+:focus-visible {
+  outline: 2px solid rgba(242, 193, 79, 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid rgba(242, 193, 79, 0.6);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: rgba(242, 193, 79, 0.45);
+  box-shadow: 0 0 0 3px rgba(242, 193, 79, 0.12);
+}
+
+/* ── Shimmer animation for skeleton loading (Netflix pattern) ── */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer {
+    animation: none;
+  }
+
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

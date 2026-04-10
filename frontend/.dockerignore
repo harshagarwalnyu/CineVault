@@ -1,0 +1,20 @@
+# Local environment
+node_modules/
+.next/
+.next-app*/
+out/
+build/
+.git/
+.gitignore
+
+# Build config
+Dockerfile
+.dockerignore
+
+# Logs and temp files
+*.log
+.DS_Store
+
+# Root leak prevention (in case of relative paths)
+**/data/
+**/*.db

@@ -36,6 +36,74 @@ from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
+# ─── Known TMDB multi-word genres (longest first for greedy matching) ────
+_TMDB_GENRES = [
+    "Science Fiction", "TV Movie",  # multi-word — must match before single words
+    "Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary",
+    "Drama", "Family", "Fantasy", "History", "Horror", "Music", "Mystery",
+    "Romance", "Thriller", "War", "Western",
+]
+
+GENRE_SEPARATOR = "|"
+
+
+def normalize_genres(raw: str) -> str:
+    """Convert any genre format (JSON array, space-delimited, pipe-delimited) to pipe-delimited.
+
+    Handles three input formats:
+    1. JSON array: '["Action", "Science Fiction"]' → 'Action|Science Fiction'
+    2. Pipe-delimited: 'Action|Science Fiction' → 'Action|Science Fiction' (passthrough)
+    3. Space-delimited legacy: 'Action Science Fiction' → 'Action|Science Fiction'
+       (greedy matching against known TMDB genre names)
+    """
+    if not raw or not raw.strip():
+        return ""
+    raw = raw.strip()
+
+    # Format 1: JSON array string
+    if raw.startswith("["):
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                return GENRE_SEPARATOR.join(str(g).strip() for g in parsed if str(g).strip())
+        except (json.JSONDecodeError, TypeError):
+            pass  # Fall through to other formats
+
+    # Format 2: Already pipe-delimited
+    if GENRE_SEPARATOR in raw:
+        return raw
+
+    # Format 3: Space-delimited legacy — greedy match against known TMDB genres
+    remaining = raw
+    genres = []
+    while remaining:
+        remaining = remaining.strip()
+        if not remaining:
+            break
+        matched = False
+        for genre in _TMDB_GENRES:
+            if remaining.lower().startswith(genre.lower()):
+                genres.append(genre)
+                remaining = remaining[len(genre):]
+                matched = True
+                break
+        if not matched:
+            # Unknown token — take the first word
+            parts = remaining.split(None, 1)
+            if parts:
+                genres.append(parts[0])
+                remaining = parts[1] if len(parts) > 1 else ""
+            else:
+                break
+    return GENRE_SEPARATOR.join(genres)
+
+
+def split_genres(genre_str: str) -> list[str]:
+    """Split a genre string (pipe-delimited) into a list of genre names."""
+    if not genre_str:
+        return []
+    return [g.strip() for g in genre_str.split(GENRE_SEPARATOR) if g.strip()]
+
 
 class RedisRecommendationCache:
     """Redis-backed cache for recommendations (PERFORMANCE_PROTOCOL.md)."""
@@ -186,6 +254,10 @@ class EnhancedRecommendationEngine:
         ]
         self.movies_df[text_cols] = self.movies_df[text_cols].fillna("")
 
+        # Normalize genres from space-delimited to pipe-delimited so multi-word
+        # genres like "Science Fiction" are preserved as single tokens.
+        self.movies_df["genres"] = self.movies_df["genres"].map(normalize_genres)
+
         for col in ["vote_average", "vote_count"]:
             self.movies_df[col] = pd.to_numeric(
                 self.movies_df[col], errors="coerce"
@@ -234,9 +306,8 @@ class EnhancedRecommendationEngine:
         genre_ratings = {}
 
         for row in self.movies_df.itertuples(index=False):
-            genres = str(row.genres).split()
+            genres = split_genres(str(row.genres))
             for g in genres:
-                g = g.strip()
                 if g:
                     genre_counts[g] += 1
                     if g not in genre_ratings:
@@ -292,8 +363,78 @@ class EnhancedRecommendationEngine:
         # Train collaborative model
         self._train_collaborative_model()
 
+        # Initialize advanced ML engines (graceful degradation if any fail)
+        self._init_advanced_engines()
+
         self.is_trained = True
         return self
+
+    def _init_advanced_engines(self) -> None:
+        """Initialise HSTU, CLRec, Bandit, Temporal, and Multi-Objective engines.
+
+        All engines are independent — they share only the read-only movies_df.
+        We run them in parallel via ThreadPoolExecutor for ~2-3x startup speedup.
+        """
+        if self.movies_df is None or self.movies_df.empty:
+            return
+
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import time
+
+        t0 = time.monotonic()
+        movies_df = self.movies_df
+        ratings_df = self.ratings_df
+        movie_id_mapping = self._movie_index_by_id
+
+        def _init_hstu():
+            from backend.services.recommendation_engine_service.engines.hstu_engine import get_hstu_engine
+            eng = get_hstu_engine()
+            if not eng.is_ready:
+                eng.load(movies_df=movies_df, movie_id_mapping=movie_id_mapping)
+            return "HSTU"
+
+        def _init_clrec():
+            from backend.services.recommendation_engine_service.engines.clrec_engine import get_clrec_engine
+            eng = get_clrec_engine()
+            if not eng.is_ready:
+                eng.load(movies_df=movies_df)
+            return "CLRec"
+
+        def _init_bandit():
+            from backend.services.recommendation_engine_service.engines.bandit_engine import get_bandit_engine
+            eng = get_bandit_engine()
+            if not eng.is_ready:
+                eng.load(movies_df=movies_df)
+            return "Bandit"
+
+        def _init_temporal():
+            from backend.services.recommendation_engine_service.engines.temporal_engine import get_temporal_engine
+            eng = get_temporal_engine()
+            if not eng.is_ready and ratings_df is not None and not ratings_df.empty:
+                eng.load(ratings_df=ratings_df, movies_df=movies_df)
+            return "Temporal"
+
+        def _init_mtl():
+            from backend.services.recommendation_engine_service.engines.multiobjective_engine import get_multiobjective_engine
+            eng = get_multiobjective_engine()
+            if not eng.is_ready:
+                eng.load(movies_df=movies_df)
+            return "MTL"
+
+        tasks = [_init_hstu, _init_clrec, _init_bandit, _init_temporal, _init_mtl]
+
+        with ThreadPoolExecutor(max_workers=5, thread_name_prefix="engine-init") as pool:
+            futures = {pool.submit(fn): fn.__name__ for fn in tasks}
+            for future in as_completed(futures):
+                name = futures[future]
+                try:
+                    result = future.result()
+                    logger.debug("Advanced engine %s ready.", result)
+                except Exception as e:
+                    logger.warning("%s init skipped: %s", name, e)
+
+        elapsed = time.monotonic() - t0
+        logger.info("Advanced engines initialized in %.1fs (parallel).", elapsed)
 
     def _train_content_model(self):
         """Train TF-IDF content-based model."""
@@ -385,6 +526,17 @@ class EnhancedRecommendationEngine:
             return self._movie_to_dict(self.movies_df.iloc[movie_idx])
         return None
 
+    def get_movies_by_ids(self, movie_ids: List[int]) -> Dict[int, Dict]:
+        """Batch-fetch movies by IDs. Returns {movie_id: movie_dict} for found movies."""
+        if self.movies_df is None or self.movies_df.empty or not movie_ids:
+            return {}
+        result = {}
+        for mid in movie_ids:
+            idx = self._movie_index_by_id.get(mid)
+            if idx is not None:
+                result[mid] = self._movie_to_dict(self.movies_df.iloc[idx])
+        return result
+
     def _resolve_movie_id(
         self, movie_id: Optional[int], movie_title: Optional[str]
     ) -> Optional[int]:
@@ -401,7 +553,7 @@ class EnhancedRecommendationEngine:
         return {
             "id": safe_int(row["id"]),
             "title": safe_str(row["title"]),
-            "genres": safe_str(row.get("genres", "")),
+            "genres": split_genres(safe_str(row.get("genres", ""))),
             "director": safe_str(row.get("director", "")),
             "cast": safe_str(row.get("cast", "")),
             "vote_average": safe_float(row.get("vote_average", 0)),
@@ -539,18 +691,130 @@ class EnhancedRecommendationEngine:
         negative_ids.difference_update(positive_ids)
         return positive_ids, negative_ids
 
+    # Language names → ISO 639-1 codes used in original_language column
+    _LANGUAGE_MAP: Dict[str, str] = {
+        "hindi": "hi", "bollywood": "hi",
+        "tamil": "ta", "kollywood": "ta",
+        "telugu": "te", "tollywood": "te",
+        "malayalam": "ml", "mollywood": "ml",
+        "kannada": "kn", "sandalwood": "kn",
+        "bengali": "bn", "bangla": "bn",
+        "marathi": "mr",
+        "punjabi": "pa",
+        "gujarati": "gu",
+        "english": "en", "hollywood": "en",
+        "korean": "ko", "k-drama": "ko",
+        "japanese": "ja", "anime": "ja",
+        "french": "fr",
+        "spanish": "es",
+        "italian": "it",
+        "chinese": "zh", "mandarin": "zh",
+        "russian": "ru",
+        "turkish": "tr",
+        "german": "de",
+        "portuguese": "pt",
+        "thai": "th",
+        "filipino": "tl", "tagalog": "tl",
+    }
+
+    # Common genre aliases → canonical genre names
+    _GENRE_ALIASES: Dict[str, str] = {
+        "sci-fi": "science fiction", "scifi": "science fiction",
+        "rom-com": "romance", "romcom": "romance",
+        "biopic": "history", "biographical": "history",
+        "superhero": "action", "martial-arts": "action",
+        "animated": "animation", "anime": "animation",
+        "scary": "horror", "slasher": "horror", "ghost": "horror",
+        "whodunit": "mystery", "detective": "mystery",
+        "spy": "thriller", "espionage": "thriller",
+        "heist": "crime", "gangster": "crime",
+        "musical": "music", "war-film": "war",
+        "rom": "romance", "romantic": "romance",
+        "funny": "comedy", "humour": "comedy", "humor": "comedy",
+        "suspense": "thriller", "suspenseful": "thriller",
+        "kids": "family", "children": "family",
+        "period": "history", "historical": "history",
+        "fantasy-adventure": "fantasy",
+        "space": "science fiction", "aliens": "science fiction",
+        "robots": "science fiction", "dystopian": "science fiction",
+    }
+
     def _build_query_context(self, query: str) -> Dict[str, Any]:
         normalized_query = re.sub(r"\s+", " ", safe_str(query).casefold()).strip()
-        genres = {
-            genre.casefold()
-            for genre in self.genre_list
-            if genre and genre.casefold() in normalized_query
-        }
+        query_words = set(normalized_query.split())
+
+        # Expand genre aliases before matching
+        expanded_genres: set = set()
+        alias_terms: set = set()
+        for word in query_words:
+            if word in self._GENRE_ALIASES:
+                expanded_genres.add(self._GENRE_ALIASES[word])
+                alias_terms.add(word)
+        # Also check hyphenated terms in the raw query
+        for alias, canonical in self._GENRE_ALIASES.items():
+            if alias in normalized_query:
+                expanded_genres.add(canonical)
+                alias_terms.add(alias)
+
+        genres = set()
+        for genre in self.genre_list:
+            if not genre:
+                continue
+            gc = genre.casefold()
+            # Single-word genres match against word set; multi-word match as substring
+            if " " in gc:
+                if gc in normalized_query:
+                    genres.add(gc)
+            else:
+                if gc in query_words:
+                    genres.add(gc)
+        genres.update(expanded_genres)
         years = set(re.findall(r"\b(?:19|20)\d{2}\b", normalized_query))
+
+        # Extract language filter from query
+        language = None
+        language_term = None
+        for lang_name, lang_code in self._LANGUAGE_MAP.items():
+            if lang_name in query_words:
+                language = lang_code
+                language_term = lang_name
+                break
+
+        # Extract non-genre, non-language keywords for subgenre/keyword boosting
+        # (e.g. "spy", "heist", "zombie", "war", "space")
+        stopwords = {"movie", "movies", "film", "films", "good", "best", "top", "new", "old", "like", "with", "the", "and", "a", "an"}
+        # Include individual words from multi-word genres (e.g., "science", "fiction")
+        # so they get excluded from keyword extraction
+        genre_words: set[str] = set()
+        for g in self.genre_list:
+            gc = g.casefold()
+            genre_words.add(gc)
+            genre_words.update(gc.split())
+        lang_words = set(self._LANGUAGE_MAP.keys())
+        alias_words = set(self._GENRE_ALIASES.keys())
+        keywords = query_words - genres - genre_words - lang_words - alias_words - stopwords - set(years)
+
+        # Remove language, alias, and generic stopwords from the TF-IDF query to
+        # prevent irrelevant matches (e.g., "hindi" matching "Hindi Medium",
+        # "best movies" matching everything).
+        tfidf_query = normalized_query
+        terms_to_remove = (
+            ([language_term] if language_term else [])
+            + list(alias_terms)
+            + [w for w in stopwords if w in tfidf_query.split()]
+        )
+        for term in terms_to_remove:
+            if term:
+                tfidf_query = re.sub(rf"\b{re.escape(term)}\b", "", tfidf_query).strip()
+        tfidf_query = re.sub(r"\s+", " ", tfidf_query).strip()
+
         return {
-            "normalized_query": normalized_query,
+            "normalized_query": tfidf_query,
+            "original_query": normalized_query,
             "genres": genres,
             "years": years,
+            "language": language,
+            "keywords": keywords,
         }
 
     def _build_preference_profile(
@@ -588,7 +852,7 @@ class EnhancedRecommendationEngine:
 
         for movie_idx in positive_indices:
             row = self.movies_df.iloc[movie_idx]
-            genre_counter.update(self._split_terms(safe_str(row.get("genres", ""))))
+            genre_counter.update(g.casefold() for g in split_genres(safe_str(row.get("genres", ""))))
 
             director = safe_str(row.get("director", "")).casefold()
             if director:
@@ -625,7 +889,7 @@ class EnhancedRecommendationEngine:
 
     def _profile_affinity_score(self, row: pd.Series, profile: Dict[str, Any]) -> float:
         score = 0.0
-        movie_genres = self._split_terms(safe_str(row.get("genres", "")))
+        movie_genres = {g.casefold() for g in split_genres(safe_str(row.get("genres", "")))}
         score += sum(profile["genre_counter"].get(genre, 0) for genre in movie_genres)
 
         director = safe_str(row.get("director", "")).casefold()
@@ -732,7 +996,7 @@ class EnhancedRecommendationEngine:
         collaborative_score: float,
     ) -> str:
         reasons: List[str] = []
-        movie_genres = self._split_terms(safe_str(row.get("genres", "")))
+        movie_genres = {g.casefold() for g in split_genres(safe_str(row.get("genres", "")))}
         matched_query_genres = movie_genres & query_context.get("genres", set())
 
         if matched_query_genres:
@@ -873,7 +1137,7 @@ class EnhancedRecommendationEngine:
                 continue
 
             movie_dict = self._movie_to_dict(row)
-            movie_genres = self._split_terms(movie_dict.get("genres", ""))
+            movie_genres = {g.casefold() for g in split_genres(movie_dict.get("genres", ""))}
 
             # Score components
             collab_score = (
@@ -928,8 +1192,8 @@ class EnhancedRecommendationEngine:
         reasons = []
 
         # Check genre overlap
-        source_genres = self._split_terms(safe_str(source.get("genres", "")))
-        target_genres = self._split_terms(safe_str(target.get("genres", "")))
+        source_genres = {g.casefold() for g in split_genres(safe_str(source.get("genres", "")))}
+        target_genres = {g.casefold() for g in split_genres(safe_str(target.get("genres", "")))}
         common_genres = source_genres & target_genres
 
         if common_genres:
@@ -1062,10 +1326,19 @@ class EnhancedRecommendationEngine:
 
         excluded_ids = set(profile["positive_ids"]) | set(profile["negative_ids"])
         excluded_ids.update(safe_int(movie_id) for movie_id in excluded_movie_ids or [])
+        applied_signals: List[str] = []
 
         mask = self.movies_df["vote_average"] >= min_rating
         if excluded_ids:
             mask &= ~self.movies_df["id"].isin(excluded_ids)
+
+        # Apply language filter when query specifies a language
+        if query_context.get("language"):
+            lang_code = query_context["language"]
+            lang_mask = self.movies_df["original_language"].astype(str).str.strip().str.lower() == lang_code
+            if lang_mask.any():
+                mask &= lang_mask
+                applied_signals.append(f"language:{lang_code}")
 
         candidate_df = self.movies_df[mask]
         if candidate_df.empty:
@@ -1074,7 +1347,7 @@ class EnhancedRecommendationEngine:
                 "query_user": str(user_id) if user_id is not None else None,
                 "recommendation_type": "discover",
                 "total_results": 0,
-                "applied_signals": [],
+                "applied_signals": applied_signals,
                 "recommendations": [],
             }
 
@@ -1089,7 +1362,6 @@ class EnhancedRecommendationEngine:
         genre_match_bonus = np.zeros(candidate_count, dtype=float)
         quality_scores = np.zeros(candidate_count, dtype=float)
         popularity_scores = np.zeros(candidate_count, dtype=float)
-        applied_signals: List[str] = []
 
         if query_context["normalized_query"] and self.content_matrix is not None:
             query_vector = self._ensure_sparse_vector(
@@ -1138,21 +1410,45 @@ class EnhancedRecommendationEngine:
                 applied_signals.append("dense_semantic")
 
         if query_context["genres"]:
+            # Proper set intersection now that genres are pipe-delimited and
+            # multi-word genres like "Science Fiction" are preserved as single tokens
+            def _genre_match(position: int) -> float:
+                movie_genres = {g.casefold() for g in split_genres(safe_str(self.movies_df.iloc[position].get("genres", "")))}
+                return 1.0 if movie_genres & query_context["genres"] else 0.0
+
             genre_match_bonus = np.array(
-                [
-                    1.0
-                    if self._split_terms(
-                        safe_str(self.movies_df.iloc[position].get("genres", ""))
-                    )
-                    & query_context["genres"]
-                    else 0.0
-                    for position in candidate_positions
-                ],
+                [_genre_match(pos) for pos in candidate_positions],
                 dtype=float,
             )
             if np.any(genre_match_bonus):
-                base_scores += genre_match_bonus * 0.08
+                # Strong weight: when user explicitly asks for a genre, it should
+                # be the dominant signal (not drowned out by generic TF-IDF scores)
+                base_scores += genre_match_bonus * 0.25
                 applied_signals.append("genre_constraints")
+
+        # Keyword boost: match non-genre keywords (e.g. "spy", "heist", "zombie")
+        # against title, overview, and keywords fields
+        if query_context.get("keywords"):
+            kw_set = query_context["keywords"]
+
+            def _keyword_score(position: int) -> float:
+                row = self.movies_df.iloc[position]
+                searchable = " ".join([
+                    safe_str(row.get("title", "")),
+                    safe_str(row.get("overview", "")),
+                    safe_str(row.get("keywords", "")),
+                    safe_str(row.get("genres", "")),
+                ]).casefold()
+                hits = sum(1 for kw in kw_set if kw in searchable)
+                return hits / len(kw_set) if kw_set else 0.0
+
+            keyword_scores = np.array(
+                [_keyword_score(pos) for pos in candidate_positions],
+                dtype=float,
+            )
+            if np.any(keyword_scores):
+                base_scores += keyword_scores * 0.15
+                applied_signals.append("keyword_boost")
 
         if user_id is not None:
             collaborative_scores = np.array(
@@ -1180,6 +1476,22 @@ class EnhancedRecommendationEngine:
 
         base_scores += quality_scores * 0.10
         base_scores += popularity_scores * 0.04
+
+        # Recency boost: movies from the past 2-3 years get a significant boost
+        # Exponential decay: boost = 1 + amplitude * exp(-age_years / half_life)
+        # Half-life=1.5yr → movies <1yr get ~1.18x, 2yr ~1.07x, 5yr ~1.0x
+        try:
+            release_dates = pd.to_datetime(
+                self.movies_df.iloc[candidate_positions]["release_date"], errors="coerce"
+            )
+            now = pd.Timestamp.now()
+            age_years = (now - release_dates).dt.total_seconds() / (365.25 * 86400)
+            age_years = age_years.fillna(20.0).clip(lower=0).values
+            recency_boost = 0.20 * np.exp(-age_years / 1.5)
+            base_scores += recency_boost
+            applied_signals.append("recency_boost")
+        except Exception:
+            pass  # graceful degradation
 
         if not applied_signals or (base_scores.size > 0 and float(base_scores.max()) <= 0.0):
             trending = self.get_trending(limit)
@@ -1319,20 +1631,53 @@ class EnhancedRecommendationEngine:
         actor: Optional[str] = None,
         min_rating: float = 0,
         max_rating: float = 10,
+        year_from: Optional[int] = None,
+        year_to: Optional[int] = None,
+        sort_by: str = "vote_average",
+        sort_order: str = "desc",
         limit: int = 20,
         offset: int = 0,
     ) -> Tuple[List[Dict], int]:
-        """Search movies with multiple filters."""
+        """Search movies with multiple filters and language-aware query parsing."""
         if self.movies_df is None or self.movies_df.empty:
             return [], 0
 
-        # Apply filters efficiently (PERFORMANCE_PROTOCOL.md)
         mask = np.ones(len(self.movies_df), dtype=bool)
 
         if query:
-            mask &= self.movies_df["title_normalized"].str.contains(
-                query.casefold(), na=False, regex=False
-            )
+            # Use language-aware query parsing to extract language and clean query
+            query_context = self._build_query_context(query)
+
+            # Apply language filter if detected
+            if query_context.get("language"):
+                lang_code = query_context["language"]
+                lang_mask = self.movies_df["original_language"].astype(str).str.strip().str.lower() == lang_code
+                if lang_mask.any():
+                    mask &= lang_mask
+
+            # Apply genre filter when genres are detected from aliases or direct match
+            if query_context.get("genres"):
+                genre_mask = np.zeros(len(self.movies_df), dtype=bool)
+                for g in query_context["genres"]:
+                    genre_mask |= self.movies_df["genres_normalized"].str.contains(g, na=False, regex=False)
+                if genre_mask.any():
+                    mask &= genre_mask
+
+            # Search across title, genres, overview, keywords, director, cast
+            search_term = query_context.get("normalized_query", query).casefold()
+            search_words = search_term.split()
+            if search_words:
+                # Match any word in title OR genres OR overview
+                word_mask = np.zeros(len(self.movies_df), dtype=bool)
+                for word in search_words:
+                    if len(word) < 2:
+                        continue
+                    word_mask |= self.movies_df["title_normalized"].str.contains(word, na=False, regex=False)
+                    word_mask |= self.movies_df["genres_normalized"].str.contains(word, na=False, regex=False)
+                    if "overview" in self.movies_df.columns:
+                        word_mask |= self.movies_df["overview"].astype(str).str.lower().str.contains(word, na=False, regex=False)
+                mask &= word_mask
+
         if genre:
             mask &= self.movies_df["genres_normalized"].str.contains(
                 genre.casefold(), na=False, regex=False
@@ -1350,15 +1695,50 @@ class EnhancedRecommendationEngine:
             self.movies_df["vote_average"] <= max_rating
         )
 
+        if year_from is not None or year_to is not None:
+            release_years = pd.to_numeric(
+                self.movies_df["release_date"].str[:4], errors="coerce"
+            )
+            if year_from is not None:
+                mask &= release_years >= year_from
+            if year_to is not None:
+                mask &= release_years <= year_to
+
         filtered_df = self.movies_df[mask]
         total = len(filtered_df)
 
-        # Sort and paginate
-        paged_df = filtered_df.sort_values("vote_average", ascending=False).iloc[
-            offset : offset + limit
-        ]
-        results = [self._movie_to_dict(row) for _, row in paged_df.iterrows()]
+        # Sort: when sorting by vote_average, use Bayesian weighted rating
+        # to prevent 10.0-rated movies with 1 vote from dominating
+        allowed_sort = {"vote_average", "release_date", "title", "vote_count"}
+        sort_col = sort_by if sort_by in allowed_sort else "vote_average"
+        ascending = sort_order.lower() == "asc"
 
+        if sort_col == "vote_average" and not ascending:
+            # Bayesian weighted rating: (v/(v+m))*R + (m/(v+m))*C
+            m, C = 300, 6.5
+            vc = filtered_df["vote_count"].fillna(0).astype(float)
+            va = filtered_df["vote_average"].fillna(0).astype(float)
+            weighted = (vc / (vc + m)) * va + (m / (vc + m)) * C
+
+            # Add recency boost: recent movies (past 2-3 years) get priority
+            try:
+                release_dates = pd.to_datetime(filtered_df["release_date"], errors="coerce")
+                now = pd.Timestamp.now()
+                age_years = (now - release_dates).dt.total_seconds() / (365.25 * 86400)
+                age_years = age_years.fillna(20.0).clip(lower=0)
+                recency_boost = 1.5 * np.exp(-age_years / 1.5)  # +1.5 points for brand new
+                weighted = weighted + recency_boost
+            except Exception:
+                pass
+
+            sort_indices = weighted.argsort()[::-1]
+            paged_df = filtered_df.iloc[sort_indices[offset : offset + limit]]
+        else:
+            paged_df = filtered_df.sort_values(sort_col, ascending=ascending, na_position="last").iloc[
+                offset : offset + limit
+            ]
+
+        results = [self._movie_to_dict(row) for _, row in paged_df.iterrows()]
         return results, total
 
     def get_genres(self) -> List[Dict]:

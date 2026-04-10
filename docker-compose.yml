@@ -18,10 +18,10 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - AUTO_INIT_DB=true
       - USE_MOCK_DATA=true
-      - GROQ_API_KEY=${GROQ_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - PHD_SECRET_KEY=${PHD_SECRET_KEY}
-      - TMDB_API_KEY=${TMDB_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - PHD_SECRET_KEY=${PHD_SECRET_KEY:-}
+      - TMDB_API_KEY=${TMDB_API_KEY:-}
     depends_on:
       surrealdb:
         condition: service_healthy
@@ -70,16 +70,17 @@ services:
   # SurrealDB (Unified Graph & Vector Database)
   surrealdb:
     image: surrealdb/surrealdb:v2.2.1
+    user: "0:0"
     ports:
       - "8000:8000"
-    command: start --log trace --user root --pass root file:/data/database.db
+    command: start --log info --user root --pass root surrealkv:/data/database.db
     volumes:
       - surrealdb_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "/surreal", "isready", "--endpoint", "http://localhost:8000"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   # Redis (Caching & Task Queue)
   redis:
@@ -90,7 +91,7 @@ services:
 
   # Qdrant Vector Database
   qdrant:
-    image: qdrant/qdrant:v1.12.1
+    image: qdrant/qdrant:v1.13.6
     ports:
       - "6333:6333"
     volumes:

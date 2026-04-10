@@ -70,19 +70,33 @@ class MoodEngine:
         # Keyword fallback
         text_lower = text.lower()
         keyword_map = {
-            "sad": "melancholic", "cry": "melancholic", "fun": "happy", "laugh": "happy",
-            "scary": "tense", "suspense": "tense", "love": "romantic", "date": "romantic",
-            "think": "intellectual", "smart": "intellectual", "relax": "cozy", "chill": "cozy",
-            "explore": "adventurous", "epic": "adventurous", "rage": "angry", "revenge": "angry",
-            "creepy": "dark", "grim": "dark", "motivat": "inspired", "uplift": "inspired",
-            "magic": "whimsical", "wonder": "whimsical", "classic": "nostalgic", "old": "nostalgic",
+            "sad": "melancholic", "cry": "melancholic", "depress": "melancholic", "grief": "melancholic",
+            "fun": "happy", "laugh": "happy", "cheer": "happy", "joy": "happy", "feel-good": "happy",
+            "scary": "tense", "suspense": "tense", "thrill": "tense", "edge": "tense", "nerve": "tense",
+            "love": "romantic", "date": "romantic", "heart": "romantic", "passion": "romantic",
+            "think": "intellectual", "smart": "intellectual", "mind": "intellectual", "thought": "intellectual",
+            "relax": "cozy", "chill": "cozy", "comfort": "cozy", "calm": "cozy", "warm": "cozy",
+            "explore": "adventurous", "epic": "adventurous", "adrenaline": "adventurous",
+            "rush": "adventurous", "excit": "adventurous", "pump": "adventurous",
+            "rage": "angry", "revenge": "angry", "fury": "angry", "fight": "angry",
+            "creepy": "dark", "grim": "dark", "disturb": "dark", "bleak": "dark",
+            "motivat": "inspired", "uplift": "inspired", "inspir": "inspired", "triumph": "inspired",
+            "magic": "whimsical", "wonder": "whimsical", "dream": "whimsical", "fairy": "whimsical",
+            "classic": "nostalgic", "old": "nostalgic", "retro": "nostalgic", "childhood": "nostalgic",
         }
+        # Detect all matching moods (direct and keyword-based)
+        detected_moods = []
         for mood in VALID_MOODS:
             if mood in text_lower:
-                return {"primary_mood": mood, "secondary_mood": None, "energy_level": 0.5, "valence": 0.5}
+                detected_moods.append(mood)
         for keyword, mood in keyword_map.items():
-            if keyword in text_lower:
-                return {"primary_mood": mood, "secondary_mood": None, "energy_level": 0.5, "valence": 0.5}
+            if keyword in text_lower and mood not in detected_moods:
+                detected_moods.append(mood)
+
+        if detected_moods:
+            primary = detected_moods[0]
+            secondary = detected_moods[1] if len(detected_moods) > 1 else None
+            return {"primary_mood": primary, "secondary_mood": secondary, "energy_level": 0.5, "valence": 0.5}
 
         return {"primary_mood": "happy", "secondary_mood": None, "energy_level": 0.5, "valence": 0.5}
 
@@ -112,10 +126,30 @@ class MoodEngine:
 
         movie_scores = []
         for idx, row in movies_df.iterrows():
-            genres = str(row.get("genres", "")).split()
-            score = sum(genre_scores.get(g.strip(), 0) for g in genres)
+            vote_count = int(row.get("vote_count", 0) or 0)
+            if vote_count < 50:
+                continue
+            genre_str = str(row.get("genres", "")).strip()
+            # Match multi-word genres (e.g. "Science Fiction") via substring containment
+            score = sum(w for g, w in genre_scores.items() if g.lower() in genre_str.lower())
             vote_avg = float(row.get("vote_average", 0) or 0)
-            final_score = score * 0.7 + (vote_avg / 10.0) * 0.3
+            # Bayesian weighted rating: (v/(v+m)) * R + (m/(v+m)) * C
+            # where m=300 (min votes for confidence), C=6.5 (dataset mean)
+            m, C = 300, 6.5
+            bayesian_avg = (vote_count / (vote_count + m)) * vote_avg + (m / (vote_count + m)) * C
+
+            # Recency boost: recent movies get a small uplift
+            release = str(row.get("release_date", ""))
+            recency = 0.0
+            try:
+                release_year = int(release[:4]) if release and len(release) >= 4 else 2000
+                from datetime import date as _date
+                age = max(0, _date.today().year - release_year)
+                recency = 0.05 * np.exp(-age / 2.0)
+            except (ValueError, TypeError):
+                pass
+
+            final_score = score * 0.65 + (bayesian_avg / 10.0) * 0.30 + recency
             if final_score > 0:
                 movie_scores.append((idx, final_score))
 
@@ -127,10 +161,11 @@ class MoodEngine:
             results.append({
                 "id": int(row.get("id", 0)),
                 "title": str(row.get("title", "")),
-                "genres": str(row.get("genres", "")),
+                "genres": [g.strip() for g in str(row.get("genres", "")).split("|") if g.strip()] if "|" in str(row.get("genres", "")) else [g for g in str(row.get("genres", "")).split() if g],
                 "vote_average": float(row.get("vote_average", 0) or 0),
                 "poster_path": str(row.get("poster_path", "") or ""),
                 "overview": str(row.get("overview", "") or "")[:200],
+                "release_date": str(row.get("release_date", "") or ""),
                 "mood_score": round(score * 100, 1),
                 "mood": mood_result.get("primary_mood", ""),
                 "reason": f"Matches your {mood_result.get('primary_mood', '')} mood",

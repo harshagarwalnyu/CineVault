@@ -20,7 +20,7 @@ def mock_engine():
     base_movie = {
         "id": 1,
         "title": "Test Movie",
-        "genres": "Action Adventure",
+        "genres": ["Action", "Adventure"],
         "overview": "A test overview.",
         "vote_average": 8.2,
         "vote_count": 1200,
@@ -30,7 +30,7 @@ def mock_engine():
     similar_movie = {
         "id": 2,
         "title": "Similar Movie",
-        "genres": "Action Adventure",
+        "genres": ["Action", "Adventure"],
         "overview": "A related test movie.",
         "vote_average": 7.8,
         "vote_count": 900,
