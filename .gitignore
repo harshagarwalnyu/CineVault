@@ -57,3 +57,17 @@ Thumbs.db
 # Coverage
 .coverage
 htmlcov/
+
+# Test artifacts
+.hypothesis/
+.pytest_cache/
+.ruff_cache/
+
+# Editor/tool artifacts
+.codex
+*.ps1
+
+# Utility scripts (not part of app)
+fetch_*.sh
+fix_posters.py
+verify_startup.sh
