@@ -13,7 +13,7 @@ def _build_test_engine() -> EnhancedRecommendationEngine:
             {
                 "id": 1,
                 "title": "Space Hearts",
-                "genres": "Sci-Fi Romance",
+                "genres": "Science Fiction|Romance",
                 "keywords": "spaceship love found-family",
                 "tagline": "Love among the stars",
                 "cast": "Ava Stone Liam Hart",
@@ -29,7 +29,7 @@ def _build_test_engine() -> EnhancedRecommendationEngine:
             {
                 "id": 2,
                 "title": "Galaxy Love",
-                "genres": "Sci-Fi Romance",
+                "genres": "Science Fiction|Romance",
                 "keywords": "starship romance hopeful crew",
                 "tagline": "Hope travels light years",
                 "cast": "Ava Stone Mira Chen",
@@ -45,7 +45,7 @@ def _build_test_engine() -> EnhancedRecommendationEngine:
             {
                 "id": 3,
                 "title": "Robo War",
-                "genres": "Sci-Fi Action",
+                "genres": "Science Fiction|Action",
                 "keywords": "android battle war dystopia",
                 "tagline": "Metal never sleeps",
                 "cast": "Max Steel Ira Kane",

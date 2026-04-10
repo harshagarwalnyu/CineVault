@@ -58,7 +58,21 @@ async def main():
         movie_id = row['id']
         title = row['title']
         overview = row['overview']
-        genres = str(row['genres']).split(',') if row['genres'] else []
+        raw_genres = row['genres']
+        if isinstance(raw_genres, list):
+            genres = raw_genres
+        elif isinstance(raw_genres, str) and raw_genres.startswith("["):
+            import json as _json
+            try:
+                genres = _json.loads(raw_genres)
+            except (ValueError, TypeError):
+                genres = [g.strip() for g in raw_genres.split(",") if g.strip()]
+        elif isinstance(raw_genres, str) and "|" in raw_genres:
+            genres = [g.strip() for g in raw_genres.split("|") if g.strip()]
+        elif raw_genres:
+            genres = [g.strip() for g in str(raw_genres).split(",") if g.strip()]
+        else:
+            genres = []
         release_date = str(row['release_date'])
         popularity = float(row['popularity_score']) if 'popularity_score' in row else 0.0
         

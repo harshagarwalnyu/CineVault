@@ -55,8 +55,14 @@ class ExplainabilityEngine:
                 reasons.append("Highly similar content to your preferences")
         elif dominant_signal == "session":
             reasons.append("Continues the vibe of your current session")
+        elif dominant_signal == "hstu":
+            reasons.append("Predicted as your ideal next watch")
         elif dominant_signal == "lightgcn":
             reasons.append("Discovered through collaborative taste patterns")
+        elif dominant_signal == "temporal":
+            reasons.append("Aligned with your recent viewing evolution")
+        elif dominant_signal == "clrec":
+            reasons.append("Deep feature similarity to movies you enjoy")
         elif dominant_signal == "mood":
             mood = context.get("mood", "")
             if mood:
@@ -77,7 +83,12 @@ class ExplainabilityEngine:
 
         if not reasons:
             if genres:
-                primary_genre = genres.split()[0]
+                if isinstance(genres, list):
+                    primary_genre = genres[0] if genres else "movies"
+                elif isinstance(genres, str) and "|" in genres:
+                    primary_genre = genres.split("|")[0].strip() or "movies"
+                else:
+                    primary_genre = genres.split()[0]
                 reasons.append(f"Top pick in {primary_genre}")
             else:
                 reasons.append("Recommended based on your taste profile")

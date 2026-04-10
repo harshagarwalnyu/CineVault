@@ -32,7 +32,7 @@ class RecommendationType(str, Enum):
 
 class MovieBase(BaseModel):
     title: str
-    genres: Optional[str] = None
+    genres: Optional[List[str]] = None
     director: Optional[str] = None
     cast: Optional[str] = None
     tagline: Optional[str] = None
@@ -184,7 +184,7 @@ class FavoriteResponse(BaseModel):
     user_id: int
     movie_id: int
     movie_title: str
-    movie_genres: Optional[str] = None
+    movie_genres: Optional[List[str]] = None
     movie_rating: float = 0
     added_at: Optional[datetime] = None
 

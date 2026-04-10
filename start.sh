@@ -65,12 +65,13 @@ wait_for_api_ready() {
 }
 
 echo "[1/3] Stopping any running containers..."
-docker compose down
+docker compose down --remove-orphans 2>/dev/null || true
 
 echo ""
 if [ "${WATCH_MODE}" = true ]; then
     echo "[2/3] Starting optimized development mode (watch)..."
     echo "      Source code changes will sync instantly."
+    docker compose up --build -d
     docker compose watch
 else
     echo "[2/3] Building and starting the full stack (detached)..."

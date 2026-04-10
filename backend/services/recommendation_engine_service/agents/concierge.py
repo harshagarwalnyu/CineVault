@@ -129,10 +129,15 @@ def get_user_taste_profile(user_id: int) -> str:
     for _, row in user_ratings.iterrows():
         movie = engine.get_movie_by_id(int(row["movie_id"]))
         if movie and movie.get("genres"):
-            for genre in movie["genres"].split():
-                genre = genre.strip()
-                if genre:
-                    genre_scores.setdefault(genre, []).append(float(row["rating"]))
+            genres_val = movie["genres"]
+            if isinstance(genres_val, list):
+                genre_list = genres_val
+            elif isinstance(genres_val, str) and "|" in genres_val:
+                genre_list = [g.strip() for g in genres_val.split("|") if g.strip()]
+            else:
+                genre_list = [g.strip() for g in str(genres_val).split() if g.strip()]
+            for genre in genre_list:
+                genre_scores.setdefault(genre, []).append(float(row["rating"]))
     profile = {g: round(sum(s) / len(s), 1) for g, s in sorted(genre_scores.items(), key=lambda x: -sum(x[1]) / len(x[1]))[:8]}
     return json.dumps({"user_id": user_id, "genre_preferences": profile, "total_ratings": len(user_ratings)})
 

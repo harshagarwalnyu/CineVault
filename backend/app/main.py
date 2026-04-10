@@ -131,6 +131,15 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.warning(f"PhD module background init warning: {e}")
 
+            # Pre-build knowledge graph so first request is fast
+            try:
+                from backend.services.recommendation_engine_service.engines.knowledge_graph import get_knowledge_graph
+                kg = get_knowledge_graph()
+                kg.build_graph()
+                logger.info("Knowledge graph pre-built during startup.")
+            except Exception as e:
+                logger.warning(f"Knowledge graph pre-build warning: {e}")
+
         threading.Thread(target=phd_init, daemon=True).start()
     else:
         logger.info("Startup warmup disabled by configuration.")

@@ -4,13 +4,16 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from backend.app.schemas import DiscoveryRequest, DiscoveryResponse, RecommendationListResponse
 from backend.app.dependencies import get_rec_engine, get_vec_engine
+from backend.cache import cache_key, cached
 from backend.services.recommendation_engine_service.engines.recommendation import (
     EnhancedRecommendationEngine,
+    normalize_genres,
+    split_genres,
 )
 
 logger = logging.getLogger(__name__)
@@ -90,13 +93,24 @@ async def discover_movies(
 async def get_similar_movies(
     movie_id: int,
     limit: int = Query(10, ge=1, le=100),
+    response: Response = None,
     rec_engine: EnhancedRecommendationEngine = Depends(get_rec_engine),
 ):
-    movie = rec_engine.get_movie_by_id(movie_id)
-    if not movie:
+    ck = cache_key("similar", movie_id, limit)
+
+    def _compute():
+        movie = rec_engine.get_movie_by_id(movie_id)
+        if not movie:
+            return None
+        recs = rec_engine.get_content_recommendations(movie_id, limit=limit)
+        return {"movie": movie["title"], "recommendations": recs}
+
+    result = cached(ck, _compute, ttl=300)
+    if result is None:
         raise HTTPException(status_code=404, detail="Movie not found")
-    recs = rec_engine.get_content_recommendations(movie_id, limit=limit)
-    return {"movie": movie["title"], "recommendations": recs}
+    if response:
+        response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
+    return result
 
 
 # ============== Phase 2: New Endpoints ==============
@@ -185,7 +199,8 @@ async def session_recommendations(
         sess_engine = get_session_engine()
         if sess_engine.is_ready:
             candidate_ids = sess_engine.get_candidates(movie_ids, k=limit)
-            results = [rec_engine.get_movie_by_id(mid) for mid in candidate_ids if rec_engine.get_movie_by_id(mid)]
+            movies_map = rec_engine.get_movies_by_ids(candidate_ids)
+            results = [movies_map[mid] for mid in candidate_ids if mid in movies_map]
             if results:
                 return {"recommendations": results}
     except Exception:
@@ -263,14 +278,17 @@ async def get_user_taste_profile(
     if not ratings:
         raise HTTPException(status_code=404, detail="No ratings found")
 
+    movie_ids = [int(mid) for mid, _ in ratings]
+    movies_map = rec_engine.get_movies_by_ids(movie_ids)
+
     for movie_id, rating in ratings:
-        movie = rec_engine.get_movie_by_id(int(movie_id))
+        movie = movies_map.get(int(movie_id))
         if not movie:
             continue
-        for genre in str(movie.get("genres", "")).split():
-            genre = genre.strip()
-            if genre:
-                genre_scores.setdefault(genre, []).append(float(rating))
+        genres_val = movie.get("genres", "")
+        genre_list = genres_val if isinstance(genres_val, list) else split_genres(normalize_genres(str(genres_val)))
+        for genre in genre_list:
+            genre_scores.setdefault(genre, []).append(float(rating))
         release = str(movie.get("release_date", ""))[:4]
         if release.isdigit():
             decade = f"{release[:3]}0s"
@@ -346,6 +364,8 @@ async def get_era_recommendations(
     df = rec_engine.movies_df.copy()
     df["release_year"] = df["release_date"].astype(str).str[:4]
     era_movies = df[df["release_year"].str.startswith(decade_prefix)]
+    # Require minimum vote count to filter out obscure movies with inflated ratings
+    era_movies = era_movies[era_movies["vote_count"] >= 50]
     era_movies = era_movies.sort_values("vote_average", ascending=False).head(limit)
 
     results = [rec_engine._movie_to_dict(row) for _, row in era_movies.iterrows()]

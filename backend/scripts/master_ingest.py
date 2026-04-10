@@ -1,3 +1,4 @@
+import json
 import os
 import asyncio
 import logging
@@ -140,7 +141,7 @@ async def run_ingestion(pages: int = 10):
                     if not m:
                         continue
 
-                    genres = " ".join([g["name"] for g in m.get("genres", [])])
+                    genres = json.dumps([g["name"] for g in m.get("genres", [])])
                     director = ""
                     for person in m.get("credits", {}).get("crew", []):
                         if person["job"] == "Director":

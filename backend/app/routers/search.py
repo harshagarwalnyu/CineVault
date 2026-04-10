@@ -45,16 +45,40 @@ async def semantic_search_movies(
 @router.get("/movies/search", response_model=PaginatedResponse, tags=["Search"])
 async def search_movies(
     q: Optional[str] = None,
-    limit: int = Query(20, ge=1, le=100),
+    genre: Optional[str] = None,
+    director: Optional[str] = None,
+    actor: Optional[str] = None,
+    min_rating: float = Query(0, ge=0, le=10),
+    max_rating: float = Query(10, ge=0, le=10),
+    year_from: Optional[int] = Query(None, ge=1888, le=2030),
+    year_to: Optional[int] = Query(None, ge=1888, le=2030),
+    sort_by: str = Query("vote_average", pattern="^(vote_average|release_date|title|vote_count)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
     rec_engine: EnhancedRecommendationEngine = Depends(get_rec_engine),
 ):
-    movies, total = rec_engine.search_movies(query=q, limit=limit)
+    offset = (page - 1) * per_page
+    movies, total = rec_engine.search_movies(
+        query=q,
+        genre=genre,
+        director=director,
+        actor=actor,
+        min_rating=min_rating,
+        max_rating=max_rating,
+        year_from=year_from,
+        year_to=year_to,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        limit=per_page,
+        offset=offset,
+    )
     return {
         "items": movies,
         "total": total,
-        "page": 1,
-        "per_page": limit,
-        "total_pages": _total_pages(total, limit),
+        "page": page,
+        "per_page": per_page,
+        "total_pages": _total_pages(total, per_page),
     }
 
 
@@ -117,5 +141,5 @@ async def search_movies_es(
             r.setex(cache_key, 600, json.dumps(response, default=str))
         return response
     except Exception as e:
-        logger.error(f"ES Error: {e}")
+        logger.error("ES Error: %s", e)
         return {"error": "Search service temporarily unavailable", "fallback": True}
