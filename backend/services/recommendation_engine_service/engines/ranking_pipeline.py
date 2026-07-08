@@ -24,12 +24,11 @@ Production standard at Netflix, YouTube, Spotify (2026).
 
 import logging
 import threading
-from typing import Any, Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 import numpy as np
 import pandas as _pd
 
-from backend.config import settings
 
 logger = logging.getLogger(__name__)
 

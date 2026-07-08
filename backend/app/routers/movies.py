@@ -10,10 +10,9 @@ from slowapi.util import get_remote_address
 from sqlmodel import text
 
 from backend.app.schemas import MovieDetail, PaginatedResponse
-from backend.app.dependencies import get_rec_engine, get_api_key, _total_pages
+from backend.app.dependencies import get_rec_engine, _total_pages
 from backend.cache import cache_key, cached
 from backend.database import engine
-from backend.config import settings
 from backend.services.recommendation_engine_service.engines.recommendation import (
     EnhancedRecommendationEngine,
     normalize_genres,

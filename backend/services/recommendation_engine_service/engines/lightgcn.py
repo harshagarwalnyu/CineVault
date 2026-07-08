@@ -15,7 +15,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from backend.config import settings
 
 logger = logging.getLogger(__name__)
 

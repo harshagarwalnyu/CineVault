@@ -21,7 +21,7 @@ considers actual feature similarity between items.
 
 import logging
 import threading
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from scipy.sparse import csr_matrix

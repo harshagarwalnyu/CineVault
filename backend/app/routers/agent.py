@@ -1,6 +1,6 @@
 """AI Agent / Chat endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from backend.app.schemas import AgentInput

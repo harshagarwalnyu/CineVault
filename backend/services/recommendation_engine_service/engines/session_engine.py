@@ -14,7 +14,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from backend.config import settings
 
 logger = logging.getLogger(__name__)
 

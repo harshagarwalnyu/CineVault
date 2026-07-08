@@ -19,7 +19,6 @@ and collaborative filtering.
 """
 
 import logging
-import math
 import threading
 from pathlib import Path
 from typing import Dict, List, Optional
