@@ -37,7 +37,6 @@ class ExplainabilityEngine:
     ) -> str:
         """Generate explanation for why a movie was recommended."""
         reasons = []
-        title = movie.get("title", "this movie")
         vote_avg = float(movie.get("vote_average", 0) or 0)
         vote_count = int(movie.get("vote_count", 0) or 0)
         genres = str(movie.get("genres", ""))

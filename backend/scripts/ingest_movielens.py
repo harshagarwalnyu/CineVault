@@ -12,7 +12,6 @@ Usage:
 import csv
 import io
 import logging
-import os
 import zipfile
 from pathlib import Path
 from urllib.request import urlretrieve

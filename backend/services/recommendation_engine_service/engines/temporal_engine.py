@@ -19,12 +19,12 @@ the existing collaborative filtering pipeline.
 
 import logging
 import threading
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import coo_matrix, csr_matrix
+from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import svds
 
 logger = logging.getLogger(__name__)

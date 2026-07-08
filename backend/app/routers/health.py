@@ -1,15 +1,13 @@
 """Health and admin endpoints."""
 
-import json
 import logging
 import threading
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from sqlmodel import text
 
 from backend.database import engine
-from backend.config import settings
 from backend.app.dependencies import get_api_key, get_rec_engine
 from backend.services.recommendation_engine_service.engines.recommendation import (
     EnhancedRecommendationEngine,

@@ -201,7 +201,6 @@ class TwoTowerEngine:
     def _ann_search(self, user_emb: np.ndarray, k: int) -> List[int]:
         """ANN search via Qdrant."""
         try:
-            from qdrant_client.models import NamedVector
             results = self.qdrant_client.query_points(
                 collection_name=QDRANT_COLLECTION,
                 query=user_emb.tolist(),

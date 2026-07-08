@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy import Column, DateTime, BigInteger, Text, UniqueConstraint, String
+from sqlalchemy import Column, DateTime, BigInteger, Text, UniqueConstraint
 from sqlalchemy.sql import func
 
 
