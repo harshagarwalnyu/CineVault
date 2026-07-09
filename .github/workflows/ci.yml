@@ -88,6 +88,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # gitleaks diffs base^..head on PRs; shallow clones can't resolve the parent
+          fetch-depth: 0
       - name: Gitleaks (secret detection)
         uses: gitleaks/gitleaks-action@v2
         env:
