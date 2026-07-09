@@ -345,7 +345,12 @@ class HSTUEngine:
 
     def get_candidates(self, session_movie_ids: List[int], k: int = 50) -> List[int]:
         """Predict next items given a session of movie IDs."""
-        if not self._ready or not session_movie_ids or self.model is None:
+        if (
+            not self._ready
+            or not session_movie_ids
+            or self.model is None
+            or self.item_embeddings is None
+        ):
             return []
 
         try:

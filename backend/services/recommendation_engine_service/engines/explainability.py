@@ -43,7 +43,9 @@ class ExplainabilityEngine:
         genres = str(movie.get("genres", ""))
 
         # Identify dominant signal
-        dominant_signal = max(scores, key=scores.get, default=None) if scores else None
+        dominant_signal = (
+            max(scores, key=lambda k: scores[k], default=None) if scores else None
+        )
 
         if dominant_signal == "two_tower":
             reasons.append("Users with your taste profile love this one")

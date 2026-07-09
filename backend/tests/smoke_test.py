@@ -20,7 +20,14 @@ async def test_health(mock_engine):
 
 @pytest.mark.integration
 async def test_movies_search_contract(mock_engine):
-    data = await search_movies(q="test", limit=20, rec_engine=mock_engine)
+    data = await search_movies(
+        q="test",
+        min_rating=0,
+        max_rating=10,
+        page=1,
+        per_page=20,
+        rec_engine=mock_engine,
+    )
     assert isinstance(data.get("items"), list)
     assert data["items"][0]["title"] == "Test Movie"
 

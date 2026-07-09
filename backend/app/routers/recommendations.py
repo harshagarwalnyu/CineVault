@@ -104,7 +104,7 @@ async def discover_movies(
 async def get_similar_movies(
     movie_id: int,
     limit: int = Query(10, ge=1, le=100),
-    response: Response = None,
+    response: Response = None,  # type: ignore[assignment]
     rec_engine: EnhancedRecommendationEngine = Depends(get_rec_engine),
 ):
     ck = cache_key("similar", movie_id, limit)
@@ -340,7 +340,7 @@ async def get_user_taste_profile(
             {"name": g, "affinity": round(sum(s) / len(s) / 10, 2)}
             for g, s in genre_scores.items()
         ],
-        key=lambda x: -x["affinity"],
+        key=lambda x: -float(x["affinity"]),  # type: ignore[arg-type]
     )[:10]
     decades = [{"decade": d, "count": c} for d, c in decade_counts.most_common(5)]
     directors = sorted(
@@ -349,7 +349,7 @@ async def get_user_taste_profile(
             for d, s in director_scores.items()
             if len(s) >= 2
         ],
-        key=lambda x: -x["avg_rating"],
+        key=lambda x: -float(x["avg_rating"]),  # type: ignore[arg-type]
     )[:10]
 
     avg_rating = sum(r for _, r in ratings) / len(ratings)

@@ -122,7 +122,10 @@ class SerendipityEngine:
                 }
             )
 
-        serendipity_candidates.sort(key=lambda x: x["serendipity_score"], reverse=True)
+        serendipity_candidates.sort(
+            key=lambda x: float(x["serendipity_score"]),  # type: ignore[arg-type]
+            reverse=True,
+        )
         top_serendipity = serendipity_candidates[:num_to_replace]
 
         if not top_serendipity:

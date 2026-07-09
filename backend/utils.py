@@ -3,6 +3,8 @@ Shared Utility Functions for Project NEBULA.
 Compliant with AGENTS.md Section 7.1 (No `Any` types).
 """
 
+from typing import Any, cast
+
 import pandas as pd
 
 
@@ -11,7 +13,7 @@ def _is_notna(v: object) -> bool:
     if isinstance(v, (list, tuple)):
         return bool(v)  # non-empty list/tuple is truthy
     try:
-        return bool(pd.notna(v))
+        return bool(pd.notna(cast(Any, v)))
     except (ValueError, TypeError):
         return v is not None
 

@@ -100,12 +100,16 @@ class TemporalDecayEngine:
                 )  # no timestamps → 6 months
 
             # Exponential decay weights
-            weights = np.exp(-decay_rate * days_ago.values)
+            weights = np.exp(-decay_rate * days_ago.to_numpy(dtype=np.float64))
 
             # Build weighted interaction matrix
-            user_indices = ratings_df["user_id"].map(self.user_id_map).values
-            movie_indices = ratings_df["movie_id"].map(self.movie_id_map).values
-            ratings = ratings_df["rating"].values.astype(np.float64)
+            user_indices = (
+                ratings_df["user_id"].map(self.user_id_map).to_numpy(dtype=np.int64)
+            )
+            movie_indices = (
+                ratings_df["movie_id"].map(self.movie_id_map).to_numpy(dtype=np.int64)
+            )
+            ratings = ratings_df["rating"].to_numpy(dtype=np.float64)
 
             # Apply time decay to ratings
             weighted_ratings = ratings * weights
@@ -127,6 +131,8 @@ class TemporalDecayEngine:
                 logger.warning("Temporal engine: Not enough data for SVD (k=%d).", k)
                 return self
 
+            U: np.ndarray
+            Vt: np.ndarray
             U, sigma, Vt = svds(interaction_matrix, k=k)
 
             # Store user and item factors (with sigma folded into both)
@@ -155,7 +161,7 @@ class TemporalDecayEngine:
 
     def predict(self, user_id: int, movie_id: int) -> float:
         """Predict rating for a (user, movie) pair."""
-        if not self._ready:
+        if not self._ready or self.user_factors is None or self.item_factors is None:
             return 0.0
 
         uidx = self.user_id_map.get(user_id)
@@ -193,7 +199,7 @@ class TemporalDecayEngine:
         self, user_id: int, candidate_ids: List[int]
     ) -> Dict[int, float]:
         """Score a list of candidates for a specific user."""
-        if not self._ready:
+        if not self._ready or self.user_factors is None or self.item_factors is None:
             return {}
 
         uidx = self.user_id_map.get(user_id)

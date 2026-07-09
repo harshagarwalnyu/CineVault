@@ -180,7 +180,7 @@ class NebulaIngestPipeline:
                 {
                     "movie_id": r.id,
                     "score": r.score,
-                    "title": r.payload.get("title", ""),
+                    "title": (r.payload or {}).get("title", ""),
                 }
                 for r in results
             ]

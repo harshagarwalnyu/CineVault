@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 from google import genai
 from google.genai import types
 import json
@@ -49,9 +51,12 @@ class GraphRAGService:
         # or just exact matching if vector indices aren't fully populated yet.
         for t in tropes:
             # Simplified search for demonstration
-            result = await db.query(
-                "SELECT id, name FROM trope WHERE string::lowercase(name) CONTAINS $t LIMIT 3;",
-                {"t": t.lower()},
+            result = cast(
+                Any,
+                await db.query(
+                    "SELECT id, name FROM trope WHERE string::lowercase(name) CONTAINS $t LIMIT 3;",
+                    {"t": t.lower()},
+                ),
             )
             if result and len(result) > 0 and result[0]["result"]:
                 matched_tropes.extend([r["id"] for r in result[0]["result"]])
@@ -104,7 +109,7 @@ class GraphRAGService:
         LIMIT 5;
         """
 
-        results = await db.query(graph_query)
+        results = cast(Any, await db.query(graph_query))
 
         if not results or not results[0]["result"]:
             return {
@@ -123,12 +128,16 @@ class GraphRAGService:
             movie_id = r["movie"]
 
             # Fetch movie details and the specific edges (explanations) that connected it
-            movie_data = await db.query(
-                f"SELECT title, overview, popularity FROM {movie_id};"
+            movie_data = cast(
+                Any,
+                await db.query(f"SELECT title, overview, popularity FROM {movie_id};"),
             )
 
-            edges_data = await db.query(
-                f"SELECT out.name AS trope, explanation FROM has_trope WHERE in = {movie_id} AND out IN [{trope_id_list}];"
+            edges_data = cast(
+                Any,
+                await db.query(
+                    f"SELECT out.name AS trope, explanation FROM has_trope WHERE in = {movie_id} AND out IN [{trope_id_list}];"
+                ),
             )
 
             if movie_data and movie_data[0]["result"]:

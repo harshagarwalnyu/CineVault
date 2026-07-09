@@ -97,7 +97,12 @@ class SessionEngine:
         return self._ready
 
     def get_candidates(self, session_movie_ids: List[int], k: int = 50) -> List[int]:
-        if not self._ready or not session_movie_ids:
+        if (
+            not self._ready
+            or not session_movie_ids
+            or self.model is None
+            or self.item_embeddings is None
+        ):
             return []
 
         try:

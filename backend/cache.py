@@ -10,7 +10,7 @@ import json
 import logging
 import threading
 import time
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 import redis
 
@@ -115,7 +115,7 @@ def cached(
         try:
             raw = r.get(key)
             if raw is not None:
-                val = json.loads(raw)
+                val = json.loads(cast(str, raw))
                 _local_set(key, val, ttl)
                 return val
         except Exception:

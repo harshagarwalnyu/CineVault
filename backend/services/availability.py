@@ -1,4 +1,5 @@
 import hashlib
+from typing import Any, Optional
 
 
 class AvailabilityAgent:
@@ -39,7 +40,7 @@ class AvailabilityAgent:
         },
     ]
 
-    def __init__(self, user_subscriptions: list[str] = None):
+    def __init__(self, user_subscriptions: Optional[list[str]] = None):
         # Default subscriptions for the prototype user
         self.user_subscriptions = user_subscriptions or ["netflix", "prime", "max"]
 
@@ -70,7 +71,7 @@ class AvailabilityAgent:
         # 2. Negotiate with user's subscriptions
         is_subscribed = platform["id"] in self.user_subscriptions
 
-        availability_data = {
+        availability_data: dict[str, Any] = {
             "status": "available",
             "primary_action": None,  # The "Zero-Click" deep link action
             "secondary_actions": [],

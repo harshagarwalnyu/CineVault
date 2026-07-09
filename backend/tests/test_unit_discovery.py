@@ -1,3 +1,5 @@
+from typing import cast
+
 import pandas as pd
 import pytest
 
@@ -94,7 +96,8 @@ def _build_test_engine() -> EnhancedRecommendationEngine:
     ].str.casefold()
     engine.movies_df["cast_normalized"] = engine.movies_df["cast"].str.casefold()
     engine._movie_index_by_id = {
-        int(movie_id): int(idx) for idx, movie_id in engine.movies_df["id"].items()
+        int(movie_id): int(cast(int, idx))
+        for idx, movie_id in engine.movies_df["id"].items()
     }
     engine._normalized_titles = engine.movies_df["title_normalized"].tolist()
     engine._title_lookup = dict(

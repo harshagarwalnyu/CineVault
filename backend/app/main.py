@@ -8,6 +8,7 @@ Modernized with Lifespan, Pydantic V2, and Dependency Injection.
 import json
 import logging
 import threading
+from typing import Any, Callable, cast
 from contextlib import asynccontextmanager
 from time import perf_counter
 from uuid import uuid4
@@ -181,7 +182,9 @@ app.add_middleware(
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["100 per 15 minutes"])
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(
+    RateLimitExceeded, cast(Callable[..., Any], _rate_limit_exceeded_handler)
+)
 
 
 # ============== Security Headers Middleware ==============

@@ -217,9 +217,9 @@ class RankingPipeline:
                 get_multiobjective_engine,
             )
 
-            mtl = get_multiobjective_engine()
-            if mtl.is_ready:
-                mtl_scores = mtl.score_batch(candidate_list)
+            mtl_engine = get_multiobjective_engine()
+            if mtl_engine.is_ready:
+                mtl_scores = mtl_engine.score_batch(candidate_list)
         except Exception as e:
             logger.debug("Multi-Objective skipped: %s", e)
 

@@ -11,7 +11,7 @@ from typing import List, Dict, Optional
 
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_core.tools import tool
 
 from backend.services.recommendation_engine_service.engines.vector_engine import (
@@ -169,7 +169,7 @@ def get_user_taste_profile(user_id: int) -> str:
     user_ratings = engine.ratings_df[engine.ratings_df["user_id"] == user_id]
     if len(user_ratings) == 0:
         return json.dumps({"error": "No ratings found for user"})
-    genre_scores = {}
+    genre_scores: dict[str, list[float]] = {}
     for _, row in user_ratings.iterrows():
         movie = engine.get_movie_by_id(int(row["movie_id"]))
         if movie and movie.get("genres"):
@@ -323,7 +323,7 @@ class MovieAgent:
                 pass
 
         # Build messages
-        messages = []
+        messages: list[BaseMessage] = []
 
         # Prepend RAG context if available
         if rag_context:

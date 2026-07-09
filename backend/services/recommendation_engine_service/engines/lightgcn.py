@@ -28,7 +28,7 @@ def build_norm_adj(
     num_items: int,
     user_indices: np.ndarray,
     item_indices: np.ndarray,
-) -> torch.sparse.FloatTensor:
+) -> torch.Tensor:
     """
     Build the normalised bipartite adjacency matrix as a sparse tensor.
 
@@ -93,9 +93,7 @@ class LightGCNModel(nn.Module):
         nn.init.xavier_uniform_(self.user_embedding.weight)
         nn.init.xavier_uniform_(self.item_embedding.weight)
 
-    def forward(
-        self, adj: torch.sparse.FloatTensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, adj: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Propagate and return final user/item embeddings.
 
@@ -116,7 +114,7 @@ class LightGCNModel(nn.Module):
 
     def bpr_loss(
         self,
-        adj: torch.sparse.FloatTensor,
+        adj: torch.Tensor,
         user_ids: torch.Tensor,
         pos_ids: torch.Tensor,
         neg_ids: torch.Tensor,
@@ -152,7 +150,7 @@ class LightGCNEngine:
 
     def __init__(self):
         self.model: Optional[LightGCNModel] = None
-        self.adj: Optional[torch.sparse.FloatTensor] = None
+        self.adj: Optional[torch.Tensor] = None
         self.is_ready = False
         self.user_id_map: Dict[int, int] = {}
         self.movie_id_map: Dict[int, int] = {}

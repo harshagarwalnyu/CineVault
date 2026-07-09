@@ -125,7 +125,9 @@ def build_id_mappings(links: dict[int, dict]) -> None:
                 batch,
             )
 
-    matched = sum(1 for v in links.values() if tmdb_to_internal.get(v.get("tmdb_id")))
+    matched = sum(
+        1 for v in links.values() if tmdb_to_internal.get(int(v.get("tmdb_id") or 0))
+    )
     log.info(
         "movie_id_mapping populated: %d total, %d matched to internal movies.",
         len(links),

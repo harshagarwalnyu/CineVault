@@ -8,7 +8,7 @@ Parse natural language via Gemini API -> structured mood output.
 import json
 import logging
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -216,22 +216,22 @@ class MoodEngine:
 
         results = []
         for idx, score in movie_scores[:limit]:
-            row = movies_df.loc[idx]
+            result_row = movies_df.loc[cast(int, idx)]
             results.append(
                 {
-                    "id": int(row.get("id", 0)),
-                    "title": str(row.get("title", "")),
+                    "id": int(cast(Any, result_row.get("id", 0))),
+                    "title": str(result_row.get("title", "")),
                     "genres": [
                         g.strip()
-                        for g in str(row.get("genres", "")).split("|")
+                        for g in str(result_row.get("genres", "")).split("|")
                         if g.strip()
                     ]
-                    if "|" in str(row.get("genres", ""))
-                    else [g for g in str(row.get("genres", "")).split() if g],
-                    "vote_average": float(row.get("vote_average", 0) or 0),
-                    "poster_path": str(row.get("poster_path", "") or ""),
-                    "overview": str(row.get("overview", "") or "")[:200],
-                    "release_date": str(row.get("release_date", "") or ""),
+                    if "|" in str(result_row.get("genres", ""))
+                    else [g for g in str(result_row.get("genres", "")).split() if g],
+                    "vote_average": float(result_row.get("vote_average", 0) or 0),
+                    "poster_path": str(result_row.get("poster_path", "") or ""),
+                    "overview": str(result_row.get("overview", "") or "")[:200],
+                    "release_date": str(result_row.get("release_date", "") or ""),
                     "mood_score": round(score * 100, 1),
                     "mood": mood_result.get("primary_mood", ""),
                     "reason": f"Matches your {mood_result.get('primary_mood', '')} mood",

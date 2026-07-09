@@ -325,11 +325,11 @@ class CLRecEngine:
             len(features),
             epochs,
         )
-        self.model.train()
+        assert self.model is not None
+        model = self.model
+        model.train()
         augmentor = FeatureAugmentor()
-        optimizer = torch.optim.AdamW(
-            self.model.parameters(), lr=1e-3, weight_decay=1e-4
-        )
+        optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
         feat_tensor = torch.tensor(features, dtype=torch.float32)
@@ -349,12 +349,12 @@ class CLRecEngine:
                 view1 = augmentor.augment(batch)
                 view2 = augmentor.augment(batch)
 
-                loss = self.model.contrastive_forward(view1, view2)
+                loss = model.contrastive_forward(view1, view2)
                 if torch.isnan(loss) or torch.isinf(loss):
                     continue
                 optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
 
                 total_loss += loss.item()
@@ -376,7 +376,7 @@ class CLRecEngine:
                 )
                 break
 
-        self.model.eval()
+        model.eval()
         logger.info("CLRec: Self-supervised training complete.")
 
     @property

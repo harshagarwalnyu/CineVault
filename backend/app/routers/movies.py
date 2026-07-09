@@ -62,7 +62,7 @@ async def find_movie_by_title(
 async def get_movies_by_genre(
     genre: str,
     limit: int = Query(20, ge=1, le=100),
-    response: Response = None,
+    response: Response = None,  # type: ignore[assignment]
     rec_engine: EnhancedRecommendationEngine = Depends(get_rec_engine),
 ):
     ck = cache_key("genre", genre, limit)
@@ -88,16 +88,17 @@ async def get_movies_by_genre(
 @router.get("/movies/{movie_id}", response_model=MovieDetail, tags=["Movies"])
 async def get_movie(
     movie_id: int,
-    response: Response,
+    response: Response = None,  # type: ignore[assignment]
     rec_engine: EnhancedRecommendationEngine = Depends(get_rec_engine),
 ):
     ck = cache_key("movie", movie_id)
     movie = cached(ck, lambda: rec_engine.get_movie_by_id(movie_id), ttl=300)
     if not movie:
         raise HTTPException(status_code=404, detail="Movie not found")
-    response.headers["Cache-Control"] = (
-        "public, max-age=300, stale-while-revalidate=600"
-    )
+    if response:
+        response.headers["Cache-Control"] = (
+            "public, max-age=300, stale-while-revalidate=600"
+        )
     return movie
 
 
@@ -111,7 +112,7 @@ async def get_genres(
 @router.get("/trending", tags=["Recommendations"])
 async def get_trending(
     limit: int = Query(10, ge=1, le=50),
-    response: Response = None,
+    response: Response = None,  # type: ignore[assignment]
     rec_engine: EnhancedRecommendationEngine = Depends(get_rec_engine),
 ):
     ck = cache_key("trending", limit)
@@ -126,7 +127,7 @@ async def get_trending(
 @router.get("/latest", tags=["Recommendations"])
 async def get_latest(
     limit: int = Query(10, ge=1, le=50),
-    response: Response = None,
+    response: Response = None,  # type: ignore[assignment]
     rec_engine: EnhancedRecommendationEngine = Depends(get_rec_engine),
 ):
     ck = cache_key("latest", limit)

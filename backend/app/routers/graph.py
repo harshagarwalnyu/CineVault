@@ -16,7 +16,9 @@ router = APIRouter()
 
 @router.get("/movies/graph/related/{title}", tags=["Graph"])
 async def get_graph_related(
-    title: str, entity_type: str = "movie", response: Response = None
+    title: str,
+    entity_type: str = "movie",
+    response: Response = None,  # type: ignore[assignment]
 ):
     try:
         ck = cache_key("graph_related", title, entity_type)
@@ -38,7 +40,11 @@ async def get_graph_related(
 
 
 @router.get("/movies/graph/path", tags=["Graph"])
-async def get_graph_path(movie1: str, movie2: str, response: Response = None):
+async def get_graph_path(
+    movie1: str,
+    movie2: str,
+    response: Response = None,  # type: ignore[assignment]
+):
     try:
         ck = cache_key("graph_path", movie1, movie2)
         paths = cached(

@@ -321,10 +321,12 @@ class MultiObjectiveEngine:
         y_rating = torch.tensor(rating_labels, dtype=torch.float32).unsqueeze(1)
         y_engage = torch.tensor(engagement_labels, dtype=torch.float32).unsqueeze(1)
 
-        self.model.train()
+        assert self.model is not None
+        model = self.model
+        model.train()
         mtl_loss = MTLLoss(num_tasks=3)
         optimizer = torch.optim.AdamW(
-            list(self.model.parameters()) + list(mtl_loss.parameters()),
+            list(model.parameters()) + list(mtl_loss.parameters()),
             lr=1e-3,
             weight_decay=1e-4,
         )
@@ -337,7 +339,7 @@ class MultiObjectiveEngine:
 
             for i in range(0, n, batch_size):
                 idx = perm[i : i + batch_size]
-                pred_w, pred_r, pred_e = self.model(X[idx])
+                pred_w, pred_r, pred_e = model(X[idx])
 
                 # Clamp predictions to valid BCE range
                 pred_w = pred_w.clamp(1e-6, 1.0 - 1e-6)
@@ -365,7 +367,7 @@ class MultiObjectiveEngine:
                     total_loss / max(batches, 1),
                 )
 
-        self.model.eval()
+        model.eval()
         logger.info("Multi-Objective: Proxy training complete.")
 
     @property

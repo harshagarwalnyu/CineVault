@@ -45,8 +45,8 @@ def mock_engine():
     }
 
     mock.search_movies.return_value = ([base_movie], 1)
-    mock.get_movie_by_id.side_effect = (
-        lambda movie_id: None if movie_id in {999999, 999999999} else dict(base_movie)
+    mock.get_movie_by_id.side_effect = lambda movie_id: (
+        None if movie_id in {999999, 999999999} else dict(base_movie)
     )
     mock.get_trending.return_value = [dict(base_movie, title="Trending Movie")]
     mock.get_personalized_recommendations.return_value = [

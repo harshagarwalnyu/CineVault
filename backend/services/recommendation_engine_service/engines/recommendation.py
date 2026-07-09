@@ -13,7 +13,7 @@ Production-grade recommendation engine with:
 import difflib
 import re
 from collections import Counter
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -144,7 +144,7 @@ class RedisRecommendationCache:
             return None
         try:
             cached = self.client.get(key)
-            return json.loads(cached) if cached else None
+            return json.loads(cast(str, cached)) if cached else None
         except Exception:
             return None
 
@@ -536,12 +536,14 @@ class EnhancedRecommendationEngine:
             if n_factors < 1:
                 return
 
+            U: np.ndarray
+            Vt: np.ndarray
             U, sigma, Vt = svds(matrix, k=n_factors)
             sigma = np.diag(sigma)
 
-            self.collab_predictions = np.dot(np.dot(U, sigma), Vt)
+            preds = np.dot(np.dot(U, sigma), Vt)
             self.collab_predictions = pd.DataFrame(
-                self.collab_predictions + user_means.values.reshape(-1, 1),
+                preds + user_means.to_numpy().reshape(-1, 1),
                 columns=pivot.columns,
             )
         except Exception as e:
@@ -926,6 +928,16 @@ class EnhancedRecommendationEngine:
         liked_titles: Optional[List[str]] = None,
         excluded_movie_ids: Optional[List[int]] = None,
     ) -> Dict[str, Any]:
+        if self.movies_df is None:
+            return {
+                "positive_ids": set(),
+                "negative_ids": set(),
+                "positive_indices": [],
+                "genre_counter": Counter(),
+                "director_counter": Counter(),
+                "cast_counter": Counter(),
+                "taste_vector": None,
+            }
         positive_ids = {
             safe_int(movie_id)
             for movie_id in liked_movie_ids or []
@@ -1144,6 +1156,8 @@ class EnhancedRecommendationEngine:
         """Get content-based recommendations."""
         if self.content_matrix is None and self.similarity_matrix is None:
             return self.get_hybrid_recommendations(movie_id=movie_id, limit=limit)
+        if self.movies_df is None:
+            return []
 
         matches = self.movies_df[self.movies_df.id == movie_id]
         if len(matches) == 0:
@@ -1154,6 +1168,7 @@ class EnhancedRecommendationEngine:
         if self.similarity_matrix is not None:
             scores = list(enumerate(self.similarity_matrix[movie_idx]))
         else:
+            assert self.content_matrix is not None
             similarity_scores = linear_kernel(
                 self.content_matrix, self.content_matrix[movie_idx]
             ).ravel()
@@ -1188,7 +1203,7 @@ class EnhancedRecommendationEngine:
                 movie_id in self.collab_predictions.columns
                 and user_id in self.collab_predictions.index
             ):
-                return float(self.collab_predictions.loc[user_id, movie_id])
+                return float(cast(Any, self.collab_predictions.loc[user_id, movie_id]))
         except (ValueError, KeyError, TypeError, AttributeError):
             # Gracefully handle missing predictions for new users/movies
             pass
@@ -1235,6 +1250,7 @@ class EnhancedRecommendationEngine:
         if self.similarity_matrix is not None:
             content_scores = list(enumerate(self.similarity_matrix[movie_idx]))
         else:
+            assert self.content_matrix is not None
             content_scores = list(
                 enumerate(
                     linear_kernel(
@@ -1248,7 +1264,7 @@ class EnhancedRecommendationEngine:
 
         # Calculate hybrid scores
         results = []
-        seen_genres = Counter()
+        seen_genres: Counter[str] = Counter()
 
         for idx, content_score in content_scores:
             row = self.movies_df.iloc[idx]
@@ -1421,6 +1437,7 @@ class EnhancedRecommendationEngine:
                 "applied_signals": [],
                 "recommendations": [],
             }
+        movies_df = self.movies_df
 
         cache_key = RedisRecommendationCache._generate_cache_key(
             "discover",
@@ -1453,22 +1470,22 @@ class EnhancedRecommendationEngine:
         excluded_ids.update(safe_int(movie_id) for movie_id in excluded_movie_ids or [])
         applied_signals: List[str] = []
 
-        mask = self.movies_df["vote_average"] >= min_rating
+        mask = movies_df["vote_average"] >= min_rating
         if excluded_ids:
-            mask &= ~self.movies_df["id"].isin(excluded_ids)
+            mask &= ~movies_df["id"].isin(excluded_ids)
 
         # Apply language filter when query specifies a language
         if query_context.get("language"):
             lang_code = query_context["language"]
             lang_mask = (
-                self.movies_df["original_language"].astype(str).str.strip().str.lower()
+                movies_df["original_language"].astype(str).str.strip().str.lower()
                 == lang_code
             )
             if lang_mask.any():
                 mask &= lang_mask
                 applied_signals.append(f"language:{lang_code}")
 
-        candidate_df = self.movies_df[mask]
+        candidate_df = movies_df[mask]
         if candidate_df.empty:
             return {
                 "query_movie": query,
@@ -1515,7 +1532,7 @@ class EnhancedRecommendationEngine:
 
         metadata_scores = np.array(
             [
-                self._profile_affinity_score(self.movies_df.iloc[position], profile)
+                self._profile_affinity_score(movies_df.iloc[position], profile)
                 for position in candidate_positions
             ],
             dtype=float,
@@ -1528,9 +1545,7 @@ class EnhancedRecommendationEngine:
         if semantic_boosts:
             semantic_scores = np.array(
                 [
-                    semantic_boosts.get(
-                        safe_int(self.movies_df.iloc[position]["id"]), 0.0
-                    )
+                    semantic_boosts.get(safe_int(movies_df.iloc[position]["id"]), 0.0)
                     for position in candidate_positions
                 ],
                 dtype=float,
@@ -1546,7 +1561,7 @@ class EnhancedRecommendationEngine:
                 movie_genres = {
                     g.casefold()
                     for g in split_genres(
-                        safe_str(self.movies_df.iloc[position].get("genres", ""))
+                        safe_str(movies_df.iloc[position].get("genres", ""))
                     )
                 }
                 return 1.0 if movie_genres & query_context["genres"] else 0.0
@@ -1567,7 +1582,7 @@ class EnhancedRecommendationEngine:
             kw_set = query_context["keywords"]
 
             def _keyword_score(position: int) -> float:
-                row = self.movies_df.iloc[position]
+                row = movies_df.iloc[position]
                 searchable = " ".join(
                     [
                         safe_str(row.get("title", "")),
@@ -1592,7 +1607,7 @@ class EnhancedRecommendationEngine:
                 [
                     np.clip(
                         self.get_collaborative_score(
-                            user_id, safe_int(self.movies_df.iloc[position]["id"])
+                            user_id, safe_int(movies_df.iloc[position]["id"])
                         )
                         / 10,
                         0.0,
@@ -1607,7 +1622,7 @@ class EnhancedRecommendationEngine:
                 applied_signals.append("collaborative")
 
         for idx, position in enumerate(candidate_positions):
-            row = self.movies_df.iloc[position]
+            row = movies_df.iloc[position]
             quality_scores[idx] = self._get_quality_score(row)
             popularity_scores[idx] = self._get_popularity_score(row)
 
@@ -1619,13 +1634,13 @@ class EnhancedRecommendationEngine:
         # Half-life=1.5yr → movies <1yr get ~1.18x, 2yr ~1.07x, 5yr ~1.0x
         try:
             release_dates = pd.to_datetime(
-                self.movies_df.iloc[candidate_positions]["release_date"],
+                movies_df.iloc[candidate_positions]["release_date"],
                 errors="coerce",
             )
             now = pd.Timestamp.now()
             age_years = (now - release_dates).dt.total_seconds() / (365.25 * 86400)
-            age_years = age_years.fillna(20.0).clip(lower=0).values
-            recency_boost = 0.20 * np.exp(-age_years / 1.5)
+            age_years_arr = age_years.fillna(20.0).clip(lower=0).to_numpy()
+            recency_boost = 0.20 * np.exp(-age_years_arr / 1.5)
             base_scores += recency_boost
             applied_signals.append("recency_boost")
         except Exception:
@@ -1655,7 +1670,7 @@ class EnhancedRecommendationEngine:
         top_payloads: List[Dict[str, Any]] = []
 
         for position, movie_idx in zip(ranked_positions, top_candidate_indices):
-            row = self.movies_df.iloc[movie_idx]
+            row = movies_df.iloc[movie_idx]
             movie = self._movie_to_dict(row)
 
             semantic_component = max(

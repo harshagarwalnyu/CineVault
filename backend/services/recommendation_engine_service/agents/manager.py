@@ -7,8 +7,10 @@ Orchestrator for the Agent Swarm. Coordinates ingestion and recommendation.
 import logging
 import numpy as np
 from typing import Dict, Any
-from backend.agents.ingestion import IngestionAgent
-from backend.agents.scouts import ScoutSwarm
+from backend.services.recommendation_engine_service.agents.ingestion import (
+    IngestionAgent,
+)
+from backend.services.recommendation_engine_service.agents.scouts import ScoutSwarm
 from backend.services.recommendation_engine_service.engines.vector_engine import (
     get_vector_engine,
 )
@@ -71,7 +73,7 @@ class ManagerAgent:
 
         # Step 2: Simulate with Swarm
         # Mock user model for now
-        user_model = {
+        user_model: Dict[str, Any] = {
             "id": user_id,
             "preference_vector": np.random.rand(len(candidates[0]["dna_vector"]))
             if candidates

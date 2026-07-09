@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Search, Play, ArrowRight, X } from 'lucide-react';
+import { Mic, Play, ArrowRight } from 'lucide-react';
 
 type Availability = {
   status: string;
