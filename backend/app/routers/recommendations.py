@@ -1,13 +1,16 @@
 """Recommendation endpoints."""
 
-import json
 import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 
-from backend.app.schemas import DiscoveryRequest, DiscoveryResponse, RecommendationListResponse
+from backend.app.schemas import (
+    DiscoveryRequest,
+    DiscoveryResponse,
+    RecommendationListResponse,
+)
 from backend.app.dependencies import get_rec_engine, get_vec_engine
 from backend.cache import cache_key, cached
 from backend.services.recommendation_engine_service.engines.recommendation import (
@@ -88,8 +91,16 @@ async def discover_movies(
     )
 
 
-@router.get("/recommendations/{movie_id}", response_model=RecommendationListResponse, tags=["Recommendations"])
-@router.get("/recommendations/similar/{movie_id}", response_model=RecommendationListResponse, tags=["Recommendations"])
+@router.get(
+    "/recommendations/{movie_id}",
+    response_model=RecommendationListResponse,
+    tags=["Recommendations"],
+)
+@router.get(
+    "/recommendations/similar/{movie_id}",
+    response_model=RecommendationListResponse,
+    tags=["Recommendations"],
+)
 async def get_similar_movies(
     movie_id: int,
     limit: int = Query(10, ge=1, le=100),
@@ -109,7 +120,9 @@ async def get_similar_movies(
     if result is None:
         raise HTTPException(status_code=404, detail="Movie not found")
     if response:
-        response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
+        response.headers["Cache-Control"] = (
+            "public, max-age=300, stale-while-revalidate=600"
+        )
     return result
 
 
@@ -122,10 +135,14 @@ async def mood_recommendations(
     rec_engine: EnhancedRecommendationEngine = Depends(get_rec_engine),
 ):
     """Get mood-based movie recommendations."""
-    from backend.services.recommendation_engine_service.engines.mood_engine import get_mood_engine
+    from backend.services.recommendation_engine_service.engines.mood_engine import (
+        get_mood_engine,
+    )
 
     mood_engine = get_mood_engine()
-    results = mood_engine.get_mood_recommendations(request.text, rec_engine.movies_df, limit=request.limit)
+    results = mood_engine.get_mood_recommendations(
+        request.text, rec_engine.movies_df, limit=request.limit
+    )
     mood_analysis = mood_engine.analyze_mood(request.text)
     return {"mood": mood_analysis, "recommendations": results}
 
@@ -145,18 +162,26 @@ async def track_session_interaction(request: SessionTrackRequest):
                 {"sid": request.session_id},
             ).fetchone()
 
-            interaction = {"movie_id": request.movie_id, "action": request.action, "timestamp": datetime.now().isoformat()}
+            interaction = {
+                "movie_id": request.movie_id,
+                "action": request.action,
+                "timestamp": datetime.now().isoformat(),
+            }
 
             if existing:
                 interactions = json_lib.loads(existing[0] or "[]")
                 interactions.append(interaction)
                 conn.execute(
-                    text("UPDATE user_sessions SET movie_interactions = :data, updated_at = CURRENT_TIMESTAMP WHERE id = :sid"),
+                    text(
+                        "UPDATE user_sessions SET movie_interactions = :data, updated_at = CURRENT_TIMESTAMP WHERE id = :sid"
+                    ),
                     {"data": json_lib.dumps(interactions), "sid": request.session_id},
                 )
             else:
                 conn.execute(
-                    text("INSERT INTO user_sessions (id, movie_interactions) VALUES (:sid, :data)"),
+                    text(
+                        "INSERT INTO user_sessions (id, movie_interactions) VALUES (:sid, :data)"
+                    ),
                     {"sid": request.session_id, "data": json_lib.dumps([interaction])},
                 )
             conn.commit()
@@ -195,7 +220,10 @@ async def session_recommendations(
 
     # Try session engine first, fall back to content-based
     try:
-        from backend.services.recommendation_engine_service.engines.session_engine import get_session_engine
+        from backend.services.recommendation_engine_service.engines.session_engine import (
+            get_session_engine,
+        )
+
         sess_engine = get_session_engine()
         if sess_engine.is_ready:
             candidate_ids = sess_engine.get_candidates(movie_ids, k=limit)
@@ -226,7 +254,10 @@ async def get_visual_dna(
         raise HTTPException(status_code=404, detail="Movie not found")
 
     try:
-        from backend.services.recommendation_engine_service.engines.nebula.pipeline import get_nebula_pipeline
+        from backend.services.recommendation_engine_service.engines.nebula.pipeline import (
+            get_nebula_pipeline,
+        )
+
         pipeline = get_nebula_pipeline()
         dna = pipeline.get_dna(movie_id)
         similar = pipeline.find_visual_similar(movie_id, k=10) if dna else []
@@ -243,7 +274,10 @@ async def get_visual_similar(
 ):
     """Find cinematographically similar movies."""
     try:
-        from backend.services.recommendation_engine_service.engines.nebula.pipeline import get_nebula_pipeline
+        from backend.services.recommendation_engine_service.engines.nebula.pipeline import (
+            get_nebula_pipeline,
+        )
+
         pipeline = get_nebula_pipeline()
         results = pipeline.find_visual_similar(movie_id, k=limit)
         return {"results": results}
@@ -286,7 +320,11 @@ async def get_user_taste_profile(
         if not movie:
             continue
         genres_val = movie.get("genres", "")
-        genre_list = genres_val if isinstance(genres_val, list) else split_genres(normalize_genres(str(genres_val)))
+        genre_list = (
+            genres_val
+            if isinstance(genres_val, list)
+            else split_genres(normalize_genres(str(genres_val)))
+        )
         for genre in genre_list:
             genre_scores.setdefault(genre, []).append(float(rating))
         release = str(movie.get("release_date", ""))[:4]
@@ -298,12 +336,19 @@ async def get_user_taste_profile(
             director_scores.setdefault(director, []).append(float(rating))
 
     genres = sorted(
-        [{"name": g, "affinity": round(sum(s) / len(s) / 10, 2)} for g, s in genre_scores.items()],
+        [
+            {"name": g, "affinity": round(sum(s) / len(s) / 10, 2)}
+            for g, s in genre_scores.items()
+        ],
         key=lambda x: -x["affinity"],
     )[:10]
     decades = [{"decade": d, "count": c} for d, c in decade_counts.most_common(5)]
     directors = sorted(
-        [{"name": d, "movies_rated": len(s), "avg_rating": round(sum(s) / len(s), 1)} for d, s in director_scores.items() if len(s) >= 2],
+        [
+            {"name": d, "movies_rated": len(s), "avg_rating": round(sum(s) / len(s), 1)}
+            for d, s in director_scores.items()
+            if len(s) >= 2
+        ],
         key=lambda x: -x["avg_rating"],
     )[:10]
 
@@ -327,16 +372,27 @@ async def create_mood_playlist(
     rec_engine: EnhancedRecommendationEngine = Depends(get_rec_engine),
 ):
     """Create emotional arc movie playlist."""
-    from backend.services.recommendation_engine_service.engines.mood_engine import get_mood_engine
+    from backend.services.recommendation_engine_service.engines.mood_engine import (
+        get_mood_engine,
+    )
 
     mood_engine = get_mood_engine()
 
     # Define arc based on duration
     arc_moods = {
         "evening": [request.starting_mood, "tense", "melancholic", request.ending_mood],
-        "weekend": [request.starting_mood, "adventurous", "tense", "melancholic", "romantic", request.ending_mood],
+        "weekend": [
+            request.starting_mood,
+            "adventurous",
+            "tense",
+            "melancholic",
+            "romantic",
+            request.ending_mood,
+        ],
     }
-    moods = arc_moods.get(request.duration, [request.starting_mood, request.ending_mood])
+    moods = arc_moods.get(
+        request.duration, [request.starting_mood, request.ending_mood]
+    )
 
     playlist = []
     for mood in moods:
@@ -400,23 +456,29 @@ async def get_director_journey(
         raise HTTPException(status_code=404, detail="No movie data")
 
     df = rec_engine.movies_df
-    director_movies = df[df["director"].astype(str).str.contains(name, case=False, na=False)]
+    director_movies = df[
+        df["director"].astype(str).str.contains(name, case=False, na=False)
+    ]
 
     if director_movies.empty:
-        raise HTTPException(status_code=404, detail=f"No movies found for director: {name}")
+        raise HTTPException(
+            status_code=404, detail=f"No movies found for director: {name}"
+        )
 
     director_movies = director_movies.sort_values("release_date")
     filmography = []
     for _, row in director_movies.iterrows():
         movie = rec_engine._movie_to_dict(row)
-        filmography.append({
-            "id": movie["id"],
-            "title": movie["title"],
-            "release_date": movie["release_date"],
-            "vote_average": movie["vote_average"],
-            "genres": movie["genres"],
-            "poster_path": movie["poster_path"],
-        })
+        filmography.append(
+            {
+                "id": movie["id"],
+                "title": movie["title"],
+                "release_date": movie["release_date"],
+                "vote_average": movie["vote_average"],
+                "genres": movie["genres"],
+                "poster_path": movie["poster_path"],
+            }
+        )
 
     avg_rating = director_movies["vote_average"].mean()
     total_films = len(filmography)

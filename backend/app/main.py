@@ -25,8 +25,12 @@ from elasticsearch import Elasticsearch
 
 from backend.config import settings, ELASTICSEARCH_URL, REDIS_URL
 from backend.database import engine, initialize_database
-from backend.services.recommendation_engine_service.engines.recommendation import start_engine_warmup
-from backend.services.recommendation_engine_service.engines.vector_engine import get_vector_engine
+from backend.services.recommendation_engine_service.engines.recommendation import (
+    start_engine_warmup,
+)
+from backend.services.recommendation_engine_service.engines.vector_engine import (
+    get_vector_engine,
+)
 from backend.services.recommendation_engine_service.engines.reranker import get_reranker
 
 # Routers
@@ -110,7 +114,9 @@ async def lifespan(app: FastAPI):
             conn.execute(text("SELECT 1 FROM movies LIMIT 1"))
     except Exception as e:
         if settings.AUTO_INIT_DB:
-            logger.warning("AUTO_INIT_DB is enabled. Initializing database schema automatically.")
+            logger.warning(
+                "AUTO_INIT_DB is enabled. Initializing database schema automatically."
+            )
             initialize_database(include_mock_data=settings.USE_MOCK_DATA)
         else:
             logger.error(
@@ -121,7 +127,9 @@ async def lifespan(app: FastAPI):
 
     if settings.ENABLE_STARTUP_WARMUP:
         start_engine_warmup()
-        logger.info("API is ready for connections. Recommendation engine warming in background.")
+        logger.info(
+            "API is ready for connections. Recommendation engine warming in background."
+        )
 
         def phd_init():
             try:
@@ -133,7 +141,10 @@ async def lifespan(app: FastAPI):
 
             # Pre-build knowledge graph so first request is fast
             try:
-                from backend.services.recommendation_engine_service.engines.knowledge_graph import get_knowledge_graph
+                from backend.services.recommendation_engine_service.engines.knowledge_graph import (
+                    get_knowledge_graph,
+                )
+
                 kg = get_knowledge_graph()
                 kg.build_graph()
                 logger.info("Knowledge graph pre-built during startup.")

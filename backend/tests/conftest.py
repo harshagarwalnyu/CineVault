@@ -14,6 +14,7 @@ os.environ.setdefault("GROQ_API_KEY", "")
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
+
 @pytest.fixture
 def mock_engine():
     mock = MagicMock()

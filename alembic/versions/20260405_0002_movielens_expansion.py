@@ -37,9 +37,7 @@ def upgrade() -> None:
         "ml_ratings",
         sa.Column("id", sa.BigInteger(), primary_key=True, autoincrement=True),
         sa.Column("ml_user_id", sa.Integer(), nullable=False),
-        sa.Column(
-            "movie_id", sa.Integer(), sa.ForeignKey("movies.id"), nullable=True
-        ),
+        sa.Column("movie_id", sa.Integer(), sa.ForeignKey("movies.id"), nullable=True),
         sa.Column("rating", sa.Float(), nullable=False),
         sa.Column("timestamp", sa.BigInteger(), nullable=True),
     )
@@ -48,9 +46,7 @@ def upgrade() -> None:
         "ml_tags",
         sa.Column("id", sa.BigInteger(), primary_key=True, autoincrement=True),
         sa.Column("ml_user_id", sa.Integer(), nullable=False),
-        sa.Column(
-            "movie_id", sa.Integer(), sa.ForeignKey("movies.id"), nullable=True
-        ),
+        sa.Column("movie_id", sa.Integer(), sa.ForeignKey("movies.id"), nullable=True),
         sa.Column("tag", sa.Text(), nullable=False),
         sa.Column("timestamp", sa.BigInteger(), nullable=True),
     )
@@ -76,9 +72,7 @@ def upgrade() -> None:
     op.add_column(
         "movies", sa.Column("trailer_youtube_key", sa.String(), nullable=True)
     )
-    op.add_column(
-        "movies", sa.Column("streaming_providers", sa.Text(), nullable=True)
-    )
+    op.add_column("movies", sa.Column("streaming_providers", sa.Text(), nullable=True))
     op.add_column("movies", sa.Column("certification", sa.String(), nullable=True))
 
 

@@ -10,10 +10,9 @@ from slowapi.util import get_remote_address
 from sqlmodel import text
 
 from backend.app.schemas import MovieDetail, PaginatedResponse
-from backend.app.dependencies import get_rec_engine, get_api_key, _total_pages
+from backend.app.dependencies import get_rec_engine, _total_pages
 from backend.cache import cache_key, cached
 from backend.database import engine
-from backend.config import settings
 from backend.services.recommendation_engine_service.engines.recommendation import (
     EnhancedRecommendationEngine,
     normalize_genres,
@@ -57,7 +56,9 @@ async def find_movie_by_title(
     return movie
 
 
-@router.get("/movies/genre/{genre}", response_model=PaginatedResponse, tags=["Browsing"])
+@router.get(
+    "/movies/genre/{genre}", response_model=PaginatedResponse, tags=["Browsing"]
+)
 async def get_movies_by_genre(
     genre: str,
     limit: int = Query(20, ge=1, le=100),
@@ -78,7 +79,9 @@ async def get_movies_by_genre(
 
     result = cached(ck, _compute, ttl=120)
     if response:
-        response.headers["Cache-Control"] = "public, max-age=120, stale-while-revalidate=240"
+        response.headers["Cache-Control"] = (
+            "public, max-age=120, stale-while-revalidate=240"
+        )
     return result
 
 
@@ -92,7 +95,9 @@ async def get_movie(
     movie = cached(ck, lambda: rec_engine.get_movie_by_id(movie_id), ttl=300)
     if not movie:
         raise HTTPException(status_code=404, detail="Movie not found")
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
+    response.headers["Cache-Control"] = (
+        "public, max-age=300, stale-while-revalidate=600"
+    )
     return movie
 
 
@@ -112,7 +117,9 @@ async def get_trending(
     ck = cache_key("trending", limit)
     result = cached(ck, lambda: {"movies": rec_engine.get_trending(limit)}, ttl=60)
     if response:
-        response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=120"
+        response.headers["Cache-Control"] = (
+            "public, max-age=60, stale-while-revalidate=120"
+        )
     return result
 
 
@@ -125,7 +132,9 @@ async def get_latest(
     ck = cache_key("latest", limit)
     result = cached(ck, lambda: {"movies": rec_engine.get_latest(limit)}, ttl=60)
     if response:
-        response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=120"
+        response.headers["Cache-Control"] = (
+            "public, max-age=60, stale-while-revalidate=120"
+        )
     return result
 
 

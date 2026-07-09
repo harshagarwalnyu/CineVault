@@ -39,9 +39,25 @@ MODEL_PATH = Path("data/models/hstu.pt")
 # Genre vocabulary (shared with other engines)
 # ---------------------------------------------------------------------------
 GENRE_VOCAB = [
-    "Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary",
-    "Drama", "Family", "Fantasy", "History", "Horror", "Music", "Mystery",
-    "Romance", "Science Fiction", "Thriller", "TV Movie", "War", "Western",
+    "Action",
+    "Adventure",
+    "Animation",
+    "Comedy",
+    "Crime",
+    "Documentary",
+    "Drama",
+    "Family",
+    "Fantasy",
+    "History",
+    "Horror",
+    "Music",
+    "Mystery",
+    "Romance",
+    "Science Fiction",
+    "Thriller",
+    "TV Movie",
+    "War",
+    "Western",
 ]
 NUM_GENRES = len(GENRE_VOCAB)
 # Metadata features: genres (19) + decade (1) + vote_avg (1) + runtime (1) = 22
@@ -51,6 +67,7 @@ ITEM_META_DIM = NUM_GENRES + 3
 # ---------------------------------------------------------------------------
 # Pointwise-normalised multi-head attention (the core HSTU innovation)
 # ---------------------------------------------------------------------------
+
 
 class PointwiseNormAttention(nn.Module):
     """
@@ -69,10 +86,14 @@ class PointwiseNormAttention(nn.Module):
 
         self.qkv = nn.Linear(d_model, 3 * d_model)
         self.out_proj = nn.Linear(d_model, d_model)
-        self.temperature = nn.Parameter(torch.tensor(math.sqrt(self.head_dim), dtype=torch.float32))
+        self.temperature = nn.Parameter(
+            torch.tensor(math.sqrt(self.head_dim), dtype=torch.float32)
+        )
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         B, T, _ = x.shape
         qkv = self.qkv(x).reshape(B, T, 3, self.num_heads, self.head_dim)
         qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, B, H, T, D)
@@ -87,7 +108,9 @@ class PointwiseNormAttention(nn.Module):
 
         # Causal mask
         if mask is None:
-            mask = torch.triu(torch.ones(T, T, device=x.device, dtype=torch.bool), diagonal=1)
+            mask = torch.triu(
+                torch.ones(T, T, device=x.device, dtype=torch.bool), diagonal=1
+            )
         attn = attn.masked_fill(mask.unsqueeze(0).unsqueeze(0), float("-inf"))
 
         # ReLU activation instead of softmax (another HSTU departure)
@@ -102,6 +125,7 @@ class PointwiseNormAttention(nn.Module):
 # ---------------------------------------------------------------------------
 # HSTU Block: collapsed feature-extraction + spatial-aggregation + transform
 # ---------------------------------------------------------------------------
+
 
 class HSTUBlock(nn.Module):
     """
@@ -124,7 +148,9 @@ class HSTUBlock(nn.Module):
         self.down_proj = nn.Linear(ffn_hidden, d_model, bias=False)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         # Sub-layer 1+2: Normalise -> Attention -> Residual
         h = self.norm1(x)
         h = self.attention(h, mask)
@@ -142,6 +168,7 @@ class HSTUBlock(nn.Module):
 # ---------------------------------------------------------------------------
 # Full HSTU Model
 # ---------------------------------------------------------------------------
+
 
 class HSTUModel(nn.Module):
     """
@@ -174,9 +201,9 @@ class HSTUModel(nn.Module):
         self.pos_embedding = nn.Embedding(max_seq_len, embed_dim)
 
         # Stacked HSTU blocks
-        self.blocks = nn.ModuleList([
-            HSTUBlock(embed_dim, num_heads, dropout) for _ in range(num_layers)
-        ])
+        self.blocks = nn.ModuleList(
+            [HSTUBlock(embed_dim, num_heads, dropout) for _ in range(num_layers)]
+        )
 
         self.final_norm = nn.LayerNorm(embed_dim)
         self.output_proj = nn.Linear(embed_dim, embed_dim)
@@ -208,7 +235,8 @@ class HSTUModel(nn.Module):
 
         # Causal mask
         causal_mask = torch.triu(
-            torch.ones(T, T, device=item_ids.device, dtype=torch.bool), diagonal=1,
+            torch.ones(T, T, device=item_ids.device, dtype=torch.bool),
+            diagonal=1,
         )
 
         # Pass through HSTU blocks
@@ -228,6 +256,7 @@ class HSTUModel(nn.Module):
 # ---------------------------------------------------------------------------
 # HSTU Engine (serving wrapper)
 # ---------------------------------------------------------------------------
+
 
 def encode_item_meta(row) -> np.ndarray:
     """Encode a movie row into the HSTU metadata feature vector."""
@@ -258,7 +287,9 @@ class HSTUEngine:
         self._ready = False
         self._lock = threading.Lock()
 
-    def load(self, movies_df=None, movie_id_mapping: Optional[Dict[int, int]] = None) -> "HSTUEngine":
+    def load(
+        self, movies_df=None, movie_id_mapping: Optional[Dict[int, int]] = None
+    ) -> "HSTUEngine":
         """Load trained HSTU model or initialise from movie data."""
         try:
             if movies_df is not None:
@@ -285,7 +316,9 @@ class HSTUEngine:
                 self.model.load_state_dict(state)
                 logger.info("HSTU model loaded from %s", MODEL_PATH)
             else:
-                logger.info("HSTU: No pretrained weights, using random init (will learn from interactions)")
+                logger.info(
+                    "HSTU: No pretrained weights, using random init (will learn from interactions)"
+                )
 
             self.model.eval()
 
@@ -295,7 +328,12 @@ class HSTUEngine:
                 self.item_embeddings = self.model.item_embedding(all_ids).numpy()
 
             self._ready = True
-            logger.info("HSTU engine loaded (%d items, %d-dim, %d layers).", num_items, EMBEDDING_DIM, NUM_LAYERS)
+            logger.info(
+                "HSTU engine loaded (%d items, %d-dim, %d layers).",
+                num_items,
+                EMBEDDING_DIM,
+                NUM_LAYERS,
+            )
         except Exception as e:
             logger.error("HSTU engine load failed: %s", e)
             self._ready = False
@@ -335,7 +373,9 @@ class HSTUEngine:
             # Pad to MAX_SEQ_LEN (left-padding)
             pad_len = MAX_SEQ_LEN - len(indices)
             padded_ids = [0] * pad_len + indices
-            padded_meta = [np.zeros(ITEM_META_DIM, dtype=np.float32)] * pad_len + meta_list
+            padded_meta = [
+                np.zeros(ITEM_META_DIM, dtype=np.float32)
+            ] * pad_len + meta_list
 
             input_ids = torch.tensor([padded_ids], dtype=torch.long)
             input_meta = torch.tensor([padded_meta], dtype=torch.float32)
@@ -350,7 +390,7 @@ class HSTUEngine:
             pred_norm = pred_embedding / max(np.linalg.norm(pred_embedding), 1e-8)
 
             scores = normalized_items @ pred_norm
-            top_indices = np.argsort(scores)[::-1][:k + len(indices)]
+            top_indices = np.argsort(scores)[::-1][: k + len(indices)]
 
             seen = set(indices)
             results = []

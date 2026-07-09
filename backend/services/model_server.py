@@ -58,7 +58,10 @@ class ModelServer:
             if not path.exists():
                 continue
             current_mtime = path.stat().st_mtime
-            if name not in self.model_versions or current_mtime > self.model_versions[name]:
+            if (
+                name not in self.model_versions
+                or current_mtime > self.model_versions[name]
+            ):
                 logger.info("Detected updated weights for %s, reloading...", name)
                 self._load_model(name, path)
 

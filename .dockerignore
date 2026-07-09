@@ -69,4 +69,3 @@
 # Keep the bootstrap movie dataset available to the backend image.
 !data/
 !data/movies.csv
-

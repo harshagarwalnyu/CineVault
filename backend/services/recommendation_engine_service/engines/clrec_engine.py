@@ -19,7 +19,6 @@ and collaborative filtering.
 """
 
 import logging
-import math
 import threading
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -37,9 +36,25 @@ MODEL_PATH = Path("data/models/clrec.pt")
 
 # Genre vocabulary (shared)
 GENRE_VOCAB = [
-    "Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary",
-    "Drama", "Family", "Fantasy", "History", "Horror", "Music", "Mystery",
-    "Romance", "Science Fiction", "Thriller", "TV Movie", "War", "Western",
+    "Action",
+    "Adventure",
+    "Animation",
+    "Comedy",
+    "Crime",
+    "Documentary",
+    "Drama",
+    "Family",
+    "Fantasy",
+    "History",
+    "Horror",
+    "Music",
+    "Mystery",
+    "Romance",
+    "Science Fiction",
+    "Thriller",
+    "TV Movie",
+    "War",
+    "Western",
 ]
 NUM_GENRES = len(GENRE_VOCAB)
 # Features: genres (19) + vote_avg (1) + vote_count_log (1) + decade (1)
@@ -50,6 +65,7 @@ RAW_FEATURE_DIM = NUM_GENRES + 6
 # ---------------------------------------------------------------------------
 # Data Augmentation for Contrastive Learning
 # ---------------------------------------------------------------------------
+
 
 class FeatureAugmentor:
     """
@@ -85,6 +101,7 @@ class FeatureAugmentor:
 # Projection Network (SimCLR-style)
 # ---------------------------------------------------------------------------
 
+
 class ProjectionHead(nn.Module):
     """MLP projection head: maps encoder output to contrastive space."""
 
@@ -106,13 +123,16 @@ class ProjectionHead(nn.Module):
 # CLRec Encoder
 # ---------------------------------------------------------------------------
 
+
 class CLRecEncoder(nn.Module):
     """
     Encoder network that maps raw movie features to a representation space.
     Architecture: Input -> MLP([256, 256, 128]) with residual connections.
     """
 
-    def __init__(self, input_dim: int = RAW_FEATURE_DIM, embed_dim: int = EMBEDDING_DIM):
+    def __init__(
+        self, input_dim: int = RAW_FEATURE_DIM, embed_dim: int = EMBEDDING_DIM
+    ):
         super().__init__()
         self.input_proj = nn.Linear(input_dim, 256)
 
@@ -138,6 +158,7 @@ class CLRecEncoder(nn.Module):
 # CLRec Full Model (Encoder + Projection Head)
 # ---------------------------------------------------------------------------
 
+
 class CLRecModel(nn.Module):
     """
     Full contrastive learning model.
@@ -148,7 +169,9 @@ class CLRecModel(nn.Module):
     Inference: raw features -> encoder -> embedding (projection head discarded).
     """
 
-    def __init__(self, input_dim: int = RAW_FEATURE_DIM, embed_dim: int = EMBEDDING_DIM):
+    def __init__(
+        self, input_dim: int = RAW_FEATURE_DIM, embed_dim: int = EMBEDDING_DIM
+    ):
         super().__init__()
         self.encoder = CLRecEncoder(input_dim, embed_dim)
         self.projection = ProjectionHead(embed_dim, 256, 128)
@@ -159,7 +182,9 @@ class CLRecModel(nn.Module):
         return self.encoder(x)
 
     def contrastive_forward(
-        self, view1: torch.Tensor, view2: torch.Tensor,
+        self,
+        view1: torch.Tensor,
+        view2: torch.Tensor,
     ) -> torch.Tensor:
         """
         Compute InfoNCE contrastive loss between two augmented views.
@@ -181,7 +206,9 @@ class CLRecModel(nn.Module):
         labels = torch.arange(sim_matrix.size(0), device=sim_matrix.device)
 
         # Symmetric loss (both directions)
-        loss = (F.cross_entropy(sim_matrix, labels) + F.cross_entropy(sim_matrix.T, labels)) / 2
+        loss = (
+            F.cross_entropy(sim_matrix, labels) + F.cross_entropy(sim_matrix.T, labels)
+        ) / 2
         return loss
 
     def get_embedding(self, x: torch.Tensor) -> torch.Tensor:
@@ -193,6 +220,7 @@ class CLRecModel(nn.Module):
 # ---------------------------------------------------------------------------
 # Feature extraction
 # ---------------------------------------------------------------------------
+
 
 def extract_features(row) -> np.ndarray:
     """Extract raw feature vector from a movie DataFrame row."""
@@ -210,12 +238,15 @@ def extract_features(row) -> np.ndarray:
     lang_hash = (hash(str(row.get("original_language", "en"))) % 100) / 100.0
     popularity = np.log1p(float(row.get("popularity", 0))) / np.log1p(1000)
 
-    return np.concatenate([genre_vec, [vote_avg, vote_count, decade, runtime, lang_hash, popularity]])
+    return np.concatenate(
+        [genre_vec, [vote_avg, vote_count, decade, runtime, lang_hash, popularity]]
+    )
 
 
 # ---------------------------------------------------------------------------
 # CLRec Engine
 # ---------------------------------------------------------------------------
+
 
 class CLRecEngine:
     """
@@ -244,13 +275,15 @@ class CLRecEngine:
 
             # Build ID mapping
             self.movie_id_to_idx = {
-                int(row["id"]): idx
-                for idx, (_, row) in enumerate(movies_df.iterrows())
+                int(row["id"]): idx for idx, (_, row) in enumerate(movies_df.iterrows())
             }
             self.idx_to_movie_id = {v: k for k, v in self.movie_id_to_idx.items()}
 
             # Extract features for all movies
-            features = np.array([extract_features(row) for _, row in movies_df.iterrows()], dtype=np.float32)
+            features = np.array(
+                [extract_features(row) for _, row in movies_df.iterrows()],
+                dtype=np.float32,
+            )
 
             self.model = CLRecModel(RAW_FEATURE_DIM, EMBEDDING_DIM)
 
@@ -270,21 +303,33 @@ class CLRecEngine:
                 self.item_embeddings = self.model.get_embedding(feat_tensor).numpy()
 
             self._ready = True
-            logger.info("CLRec engine loaded (%d items, %d-dim embeddings).", len(self.movie_id_to_idx), EMBEDDING_DIM)
+            logger.info(
+                "CLRec engine loaded (%d items, %d-dim embeddings).",
+                len(self.movie_id_to_idx),
+                EMBEDDING_DIM,
+            )
         except Exception as e:
             logger.error("CLRec engine load failed: %s", e)
             self._ready = False
         return self
 
-    def _train_self_supervised(self, features: np.ndarray, epochs: int = 20, batch_size: int = 256) -> None:
+    def _train_self_supervised(
+        self, features: np.ndarray, epochs: int = 20, batch_size: int = 256
+    ) -> None:
         """
         Train the encoder via contrastive learning on augmented feature views.
         This runs at startup if no pre-trained model exists.
         """
-        logger.info("CLRec: Training self-supervised encoder on %d items for %d epochs...", len(features), epochs)
+        logger.info(
+            "CLRec: Training self-supervised encoder on %d items for %d epochs...",
+            len(features),
+            epochs,
+        )
         self.model.train()
         augmentor = FeatureAugmentor()
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-3, weight_decay=1e-4)
+        optimizer = torch.optim.AdamW(
+            self.model.parameters(), lr=1e-3, weight_decay=1e-4
+        )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
         feat_tensor = torch.tensor(features, dtype=torch.float32)
@@ -297,7 +342,7 @@ class CLRecEngine:
             num_batches = 0
 
             for i in range(0, n, batch_size):
-                batch_idx = perm[i:i + batch_size]
+                batch_idx = perm[i : i + batch_size]
                 batch = feat_tensor[batch_idx]
 
                 # Create two augmented views
@@ -318,11 +363,17 @@ class CLRecEngine:
             scheduler.step()
             avg_loss = total_loss / max(num_batches, 1)
             if (epoch + 1) % 5 == 0:
-                logger.info("CLRec epoch %d/%d — loss: %.4f", epoch + 1, epochs, avg_loss)
+                logger.info(
+                    "CLRec epoch %d/%d — loss: %.4f", epoch + 1, epochs, avg_loss
+                )
 
             # Early stopping: if loss is near zero for 3 consecutive epochs, stop
             if avg_loss < 1e-4 and epoch >= 5:
-                logger.info("CLRec early stop at epoch %d (loss converged: %.4f)", epoch + 1, avg_loss)
+                logger.info(
+                    "CLRec early stop at epoch %d (loss converged: %.4f)",
+                    epoch + 1,
+                    avg_loss,
+                )
                 break
 
         self.model.eval()
@@ -343,9 +394,13 @@ class CLRecEngine:
 
         query_emb = self.item_embeddings[idx]
         scores = self.item_embeddings @ query_emb
-        top_indices = np.argsort(scores)[::-1][1:k + 1]  # skip self
+        top_indices = np.argsort(scores)[::-1][1 : k + 1]  # skip self
 
-        return [self.idx_to_movie_id[int(i)] for i in top_indices if int(i) in self.idx_to_movie_id]
+        return [
+            self.idx_to_movie_id[int(i)]
+            for i in top_indices
+            if int(i) in self.idx_to_movie_id
+        ]
 
     def get_embedding_for_movie(self, movie_id: int) -> Optional[np.ndarray]:
         """Get the contrastive embedding for a specific movie."""
@@ -356,12 +411,18 @@ class CLRecEngine:
             return None
         return self.item_embeddings[idx]
 
-    def score_candidates(self, anchor_ids: List[int], candidate_ids: List[int]) -> Dict[int, float]:
+    def score_candidates(
+        self, anchor_ids: List[int], candidate_ids: List[int]
+    ) -> Dict[int, float]:
         """Score candidates based on average similarity to anchor items."""
         if not self._ready or self.item_embeddings is None or not anchor_ids:
             return {}
 
-        anchor_indices = [self.movie_id_to_idx[mid] for mid in anchor_ids if mid in self.movie_id_to_idx]
+        anchor_indices = [
+            self.movie_id_to_idx[mid]
+            for mid in anchor_ids
+            if mid in self.movie_id_to_idx
+        ]
         if not anchor_indices:
             return {}
 

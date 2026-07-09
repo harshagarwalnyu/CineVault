@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy import Column, DateTime, BigInteger, Text, UniqueConstraint, String
+from sqlalchemy import Column, DateTime, BigInteger, Text, UniqueConstraint
 from sqlalchemy.sql import func
 
 
@@ -208,9 +208,7 @@ class MovieIdMapping(SQLModel, table=True):
     ml_movie_id: int = Field(nullable=False, unique=True)
     tmdb_id: Optional[int] = Field(default=None)
     imdb_id: Optional[str] = Field(default=None, sa_column=Column(Text))
-    internal_movie_id: Optional[int] = Field(
-        default=None, foreign_key="movies.id"
-    )
+    internal_movie_id: Optional[int] = Field(default=None, foreign_key="movies.id")
 
     movie: Optional["Movie"] = Relationship(back_populates="id_mappings")
 

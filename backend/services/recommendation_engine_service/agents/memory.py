@@ -24,10 +24,13 @@ class ConversationMemory:
     def _get_engine(self):
         if self._engine is None:
             from backend.database import engine
+
             self._engine = engine
         return self._engine
 
-    def save_turn(self, conversation_id: str, user_id: Optional[int], role: str, content: str):
+    def save_turn(
+        self, conversation_id: str, user_id: Optional[int], role: str, content: str
+    ):
         """Save a conversation turn."""
         try:
             engine = self._get_engine()
@@ -37,18 +40,26 @@ class ConversationMemory:
                     {"cid": conversation_id},
                 ).fetchone()
 
-                turn = {"role": role, "content": content, "timestamp": datetime.now().isoformat()}
+                turn = {
+                    "role": role,
+                    "content": content,
+                    "timestamp": datetime.now().isoformat(),
+                }
 
                 if row:
                     messages = json.loads(row[0] or "[]")
                     messages.append(turn)
                     conn.execute(
-                        text("UPDATE agent_conversations SET messages = :msgs, updated_at = CURRENT_TIMESTAMP WHERE id = :cid"),
+                        text(
+                            "UPDATE agent_conversations SET messages = :msgs, updated_at = CURRENT_TIMESTAMP WHERE id = :cid"
+                        ),
                         {"msgs": json.dumps(messages), "cid": conversation_id},
                     )
                 else:
                     conn.execute(
-                        text("INSERT INTO agent_conversations (id, user_id, messages, extracted_preferences) VALUES (:cid, :uid, :msgs, :prefs)"),
+                        text(
+                            "INSERT INTO agent_conversations (id, user_id, messages, extracted_preferences) VALUES (:cid, :uid, :msgs, :prefs)"
+                        ),
                         {
                             "cid": conversation_id,
                             "uid": user_id,
@@ -87,13 +98,38 @@ class ConversationMemory:
         mood_history = []
 
         genre_words = {
-            "action", "comedy", "drama", "horror", "thriller", "romance",
-            "sci-fi", "fantasy", "animation", "documentary", "mystery", "crime",
-            "adventure", "family", "music", "war", "western", "history",
+            "action",
+            "comedy",
+            "drama",
+            "horror",
+            "thriller",
+            "romance",
+            "sci-fi",
+            "fantasy",
+            "animation",
+            "documentary",
+            "mystery",
+            "crime",
+            "adventure",
+            "family",
+            "music",
+            "war",
+            "western",
+            "history",
         }
         mood_words = {
-            "happy", "sad", "scary", "funny", "romantic", "exciting",
-            "relaxing", "dark", "intense", "cozy", "nostalgic", "inspiring",
+            "happy",
+            "sad",
+            "scary",
+            "funny",
+            "romantic",
+            "exciting",
+            "relaxing",
+            "dark",
+            "intense",
+            "cozy",
+            "nostalgic",
+            "inspiring",
         }
 
         for turn in history:
@@ -102,7 +138,10 @@ class ConversationMemory:
                 # Extract genre preferences
                 for genre in genre_words:
                     if genre in content:
-                        if any(neg in content for neg in ["don't like", "hate", "not into", "no "]):
+                        if any(
+                            neg in content
+                            for neg in ["don't like", "hate", "not into", "no "]
+                        ):
                             disliked_genres.add(genre)
                         else:
                             liked_genres.add(genre)
@@ -128,7 +167,9 @@ class ConversationMemory:
             engine = self._get_engine()
             with engine.connect() as conn:
                 conn.execute(
-                    text("UPDATE agent_conversations SET extracted_preferences = :prefs WHERE id = :cid"),
+                    text(
+                        "UPDATE agent_conversations SET extracted_preferences = :prefs WHERE id = :cid"
+                    ),
                     {"prefs": json.dumps(prefs), "cid": conversation_id},
                 )
                 conn.commit()
@@ -143,7 +184,9 @@ class ConversationMemory:
             engine = self._get_engine()
             with engine.connect() as conn:
                 row = conn.execute(
-                    text("SELECT extracted_preferences FROM agent_conversations WHERE id = :cid"),
+                    text(
+                        "SELECT extracted_preferences FROM agent_conversations WHERE id = :cid"
+                    ),
                     {"cid": conversation_id},
                 ).fetchone()
                 if row and row[0]:
@@ -158,7 +201,9 @@ class ConversationMemory:
             engine = self._get_engine()
             with engine.connect() as conn:
                 rows = conn.execute(
-                    text("SELECT id, messages, extracted_preferences, created_at FROM agent_conversations WHERE user_id = :uid ORDER BY created_at DESC"),
+                    text(
+                        "SELECT id, messages, extracted_preferences, created_at FROM agent_conversations WHERE user_id = :uid ORDER BY created_at DESC"
+                    ),
                     {"uid": user_id},
                 ).fetchall()
                 return [

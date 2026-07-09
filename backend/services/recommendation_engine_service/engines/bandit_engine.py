@@ -53,7 +53,7 @@ class BanditArm:
     def update(self, reward: float) -> None:
         """Update posterior with observed reward ∈ [0, 1]."""
         self.alpha += reward
-        self.beta += (1.0 - reward)
+        self.beta += 1.0 - reward
         self.total_pulls += 1
 
     @property
@@ -106,7 +106,9 @@ class ThompsonSamplingEngine:
                 # A movie with 5.0 avg gets Alpha=2.0, Beta=2.0 → mean=0.5
                 quality_ratio = vote_avg / 10.0
                 # Scale prior strength by log(vote_count) — more votes = more confident
-                prior_strength = min(4.0, 1.0 + np.log1p(vote_count) / np.log1p(10000) * 3.0)
+                prior_strength = min(
+                    4.0, 1.0 + np.log1p(vote_count) / np.log1p(10000) * 3.0
+                )
 
                 alpha = 1.0 + quality_ratio * prior_strength
                 beta = 1.0 + (1.0 - quality_ratio) * prior_strength
@@ -189,7 +191,9 @@ class ThompsonSamplingEngine:
             if movie_id not in self.user_arms[user_id]:
                 # Copy from global prior
                 global_arm = self.arms.get(movie_id, BanditArm())
-                self.user_arms[user_id][movie_id] = BanditArm(global_arm.alpha, global_arm.beta)
+                self.user_arms[user_id][movie_id] = BanditArm(
+                    global_arm.alpha, global_arm.beta
+                )
             self.user_arms[user_id][movie_id].update(reward)
 
     def get_exploration_candidates(
@@ -217,11 +221,7 @@ class ThompsonSamplingEngine:
         """Return posterior mean scores for candidates (deterministic scoring)."""
         if not self._ready:
             return {}
-        return {
-            mid: self.arms[mid].mean
-            for mid in candidate_ids
-            if mid in self.arms
-        }
+        return {mid: self.arms[mid].mean for mid in candidate_ids if mid in self.arms}
 
 
 # --- Singleton ---

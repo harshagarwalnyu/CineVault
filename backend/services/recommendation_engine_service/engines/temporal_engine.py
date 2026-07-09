@@ -19,12 +19,12 @@ the existing collaborative filtering pipeline.
 
 import logging
 import threading
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import coo_matrix, csr_matrix
+from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import svds
 
 logger = logging.getLogger(__name__)
@@ -95,7 +95,9 @@ class TemporalDecayEngine:
                 days_ago = (now - timestamps).dt.total_seconds() / 86400.0
                 days_ago = days_ago.fillna(365.0)  # default: assume 1 year old
             else:
-                days_ago = pd.Series([180.0] * len(ratings_df))  # no timestamps → 6 months
+                days_ago = pd.Series(
+                    [180.0] * len(ratings_df)
+                )  # no timestamps → 6 months
 
             # Exponential decay weights
             weights = np.exp(-decay_rate * days_ago.values)
@@ -136,7 +138,10 @@ class TemporalDecayEngine:
             logger.info(
                 "Temporal decay engine loaded (%d users, %d movies, "
                 "k=%d, decay=%.4f, half-life=%.0f days).",
-                num_users, num_movies, k, decay_rate,
+                num_users,
+                num_movies,
+                k,
+                decay_rate,
                 np.log(2) / decay_rate,
             )
         except Exception as e:
@@ -159,7 +164,9 @@ class TemporalDecayEngine:
         if uidx is None or midx is None:
             return self.global_mean
 
-        score = self.global_mean + float(self.user_factors[uidx] @ self.item_factors[midx])
+        score = self.global_mean + float(
+            self.user_factors[uidx] @ self.item_factors[midx]
+        )
         return max(0.0, min(10.0, score))
 
     def get_candidates(self, user_id: int, k: int = 100) -> List[int]:
@@ -182,7 +189,9 @@ class TemporalDecayEngine:
             if int(idx) in self.reverse_movie_map
         ]
 
-    def score_candidates(self, user_id: int, candidate_ids: List[int]) -> Dict[int, float]:
+    def score_candidates(
+        self, user_id: int, candidate_ids: List[int]
+    ) -> Dict[int, float]:
         """Score a list of candidates for a specific user."""
         if not self._ready:
             return {}

@@ -21,11 +21,13 @@ def retrain_two_tower():
     if not model_path.exists():
         logger.info("No existing Two-Tower model, running full training instead")
         from backend.scripts.train_two_tower import main as train_full
+
         train_full()
         return
 
     logger.info("Loading existing Two-Tower model for incremental training...")
     from backend.scripts.train_two_tower import main as train_full
+
     # For now, re-run full training. Incremental training would load
     # existing weights and train for fewer epochs on new data.
     train_full()
@@ -37,18 +39,22 @@ def retrain_lightgcn():
     if not model_path.exists():
         logger.info("No existing LightGCN model, running full training instead")
         from backend.scripts.train_lightgcn import main as train_full
+
         train_full()
         return
 
     logger.info("Loading existing LightGCN model for incremental training...")
     from backend.scripts.train_lightgcn import main as train_full
+
     train_full()
 
 
 def atomic_save(model: torch.nn.Module, path: Path):
     """Save model weights atomically to prevent serving partial writes."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(dir=path.parent, suffix=".pt", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(
+        dir=path.parent, suffix=".pt", delete=False
+    ) as tmp:
         torch.save(model.state_dict(), tmp.name)
         tmp_path = Path(tmp.name)
     tmp_path.rename(path)

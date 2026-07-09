@@ -43,7 +43,11 @@ class KnowledgeGraph:
             )
 
             # Add Director
-            if pd.notna(row["director"]) and isinstance(row["director"], str) and row["director"].strip():
+            if (
+                pd.notna(row["director"])
+                and isinstance(row["director"], str)
+                and row["director"].strip()
+            ):
                 director_name = row["director"].strip()
                 director_id = f"director:{director_name}"
                 self.graph.add_node(director_id, type="director", name=director_name)
@@ -52,7 +56,11 @@ class KnowledgeGraph:
                 )
 
             # Add Cast (Top 3)
-            if pd.notna(row["cast"]) and isinstance(row["cast"], str) and row["cast"].strip():
+            if (
+                pd.notna(row["cast"])
+                and isinstance(row["cast"], str)
+                and row["cast"].strip()
+            ):
                 actors = [a.strip() for a in row["cast"].split(",")[:3]]
                 for actor in actors:
                     actor_id = f"actor:{actor}"

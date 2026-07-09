@@ -21,7 +21,7 @@ considers actual feature similarity between items.
 
 import logging
 import threading
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -69,16 +69,18 @@ class MMRReranker:
         k = min(k, n)
 
         # Extract relevance scores, normalise to [0, 1]
-        relevance_scores = np.array([
-            float(c.get(relevance_key, 0)) for c in candidates
-        ], dtype=np.float64)
+        relevance_scores = np.array(
+            [float(c.get(relevance_key, 0)) for c in candidates], dtype=np.float64
+        )
 
         max_rel = relevance_scores.max()
         if max_rel > 0:
             relevance_scores = relevance_scores / max_rel
 
         # Build similarity matrix
-        sim_matrix = self._build_similarity_matrix(candidates, content_matrix, movie_index_by_id)
+        sim_matrix = self._build_similarity_matrix(
+            candidates, content_matrix, movie_index_by_id
+        )
 
         # Greedy MMR selection
         selected_indices: List[int] = []
@@ -115,9 +117,14 @@ class MMRReranker:
         for rank, idx in enumerate(selected_indices):
             movie = candidates[idx].copy()
             movie["mmr_rank"] = rank + 1
-            movie["mmr_diversity_penalty"] = round(
-                max(sim_matrix[idx][s] for s in selected_indices if s != idx) * 100, 1
-            ) if len(selected_indices) > 1 else 0.0
+            movie["mmr_diversity_penalty"] = (
+                round(
+                    max(sim_matrix[idx][s] for s in selected_indices if s != idx) * 100,
+                    1,
+                )
+                if len(selected_indices) > 1
+                else 0.0
+            )
             result.append(movie)
 
         return result
@@ -173,10 +180,11 @@ class MMRReranker:
             if isinstance(genres_val, list):
                 genre_sets.append({g.lower() for g in genres_val})
             elif isinstance(genres_val, str) and "|" in genres_val:
-                genre_sets.append({g.strip().lower() for g in genres_val.split("|") if g.strip()})
+                genre_sets.append(
+                    {g.strip().lower() for g in genres_val.split("|") if g.strip()}
+                )
             else:
                 genre_sets.append({g.lower() for g in str(genres_val).split() if g})
-
 
         sim = np.zeros((n, n), dtype=np.float64)
         for i in range(n):

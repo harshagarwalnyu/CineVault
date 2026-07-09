@@ -89,11 +89,12 @@ def _build_test_engine() -> EnhancedRecommendationEngine:
     )
     engine.movies_df["title_normalized"] = engine.movies_df["title"].str.casefold()
     engine.movies_df["genres_normalized"] = engine.movies_df["genres"].str.casefold()
-    engine.movies_df["director_normalized"] = engine.movies_df["director"].str.casefold()
+    engine.movies_df["director_normalized"] = engine.movies_df[
+        "director"
+    ].str.casefold()
     engine.movies_df["cast_normalized"] = engine.movies_df["cast"].str.casefold()
     engine._movie_index_by_id = {
-        int(movie_id): int(idx)
-        for idx, movie_id in engine.movies_df["id"].items()
+        int(movie_id): int(idx) for idx, movie_id in engine.movies_df["id"].items()
     }
     engine._normalized_titles = engine.movies_df["title_normalized"].tolist()
     engine._title_lookup = dict(
@@ -121,5 +122,8 @@ def test_discover_movies_uses_query_and_liked_seed():
     assert all(movie["id"] != 1 for movie in payload["recommendations"])
     assert "query_intent" in payload["applied_signals"]
     assert "taste_feedback" in payload["applied_signals"]
-    assert payload["recommendations"][0]["hybrid_score"] > payload["recommendations"][1]["hybrid_score"]
+    assert (
+        payload["recommendations"][0]["hybrid_score"]
+        > payload["recommendations"][1]["hybrid_score"]
+    )
     assert payload["recommendations"][0]["reason"]

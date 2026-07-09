@@ -57,7 +57,7 @@ class MovieResponse(MovieBase):
     release_date: Optional[str] = None
     runtime: Optional[int] = None
     original_language: Optional[str] = None
-    
+
     # cinevault Context Placeholders
     cinevault_qualities: List[str] = Field(
         default_factory=lambda: ["720p.WEB", "1080p.WEB"]
@@ -92,7 +92,9 @@ class MovieWithScore(MovieResponse):
         0, description="Content-based similarity score (0-100)"
     )
     semantic_score: float = Field(0, description="Semantic retrieval score (0-100)")
-    profile_score: float = Field(0, description="User taste/profile match score (0-100)")
+    profile_score: float = Field(
+        0, description="User taste/profile match score (0-100)"
+    )
     collaborative_score: float = Field(
         0, description="Collaborative filtering score (0-100)"
     )
