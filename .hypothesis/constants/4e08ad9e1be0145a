@@ -1,4 +1,0 @@
-# file: /home/bossman/projects/Movies-Recommender/backend/services/recommendation_engine_service/engines/visual_engine.py
-# hypothesis_version: 6.151.10
-
-[0.85, 0.92, 0.98, 512, 'Blade Runner 2049', 'Mad Max: Fury Road', 'Tron: Legacy', 'id', 'reason', 'score', 'title']

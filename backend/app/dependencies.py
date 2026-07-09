@@ -28,7 +28,9 @@ api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 async def get_api_key(api_key: str = Security(api_key_header)):
     if not PHD_SECRET_KEY:
-        logger.error("PHD_SECRET_KEY is not configured; rejecting protected endpoint access")
+        logger.error(
+            "PHD_SECRET_KEY is not configured; rejecting protected endpoint access"
+        )
         raise HTTPException(status_code=503, detail="Auth is not configured")
     if api_key and hmac.compare_digest(str(api_key), str(PHD_SECRET_KEY)):
         return api_key
@@ -36,6 +38,7 @@ async def get_api_key(api_key: str = Security(api_key_header)):
 
 
 # ============== Database ==============
+
 
 def get_db_conn():
     """Database connection dependency (Raw)."""
@@ -48,6 +51,7 @@ def get_db_conn():
 
 # ============== Engines ==============
 
+
 def get_rec_engine() -> EnhancedRecommendationEngine:
     """Recommendation engine dependency."""
     return get_engine()
@@ -59,6 +63,7 @@ def get_vec_engine():
 
 
 # ============== Helpers ==============
+
 
 def _total_pages(total: int, per_page: int) -> int:
     if total == 0:

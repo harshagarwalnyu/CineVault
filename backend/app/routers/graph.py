@@ -15,16 +15,22 @@ router = APIRouter()
 
 
 @router.get("/movies/graph/related/{title}", tags=["Graph"])
-async def get_graph_related(title: str, entity_type: str = "movie", response: Response = None):
+async def get_graph_related(
+    title: str, entity_type: str = "movie", response: Response = None
+):
     try:
         ck = cache_key("graph_related", title, entity_type)
         related = cached(
             ck,
-            lambda: get_knowledge_graph().get_related_entities(title, entity_type=entity_type),
+            lambda: get_knowledge_graph().get_related_entities(
+                title, entity_type=entity_type
+            ),
             ttl=600,
         )
         if response:
-            response.headers["Cache-Control"] = "public, max-age=600, stale-while-revalidate=1200"
+            response.headers["Cache-Control"] = (
+                "public, max-age=600, stale-while-revalidate=1200"
+            )
         return {"related": related}
     except Exception as exc:
         logger.warning("Graph related lookup failed for %s: %s", title, exc)
@@ -41,7 +47,9 @@ async def get_graph_path(movie1: str, movie2: str, response: Response = None):
             ttl=600,
         )
         if response:
-            response.headers["Cache-Control"] = "public, max-age=600, stale-while-revalidate=1200"
+            response.headers["Cache-Control"] = (
+                "public, max-age=600, stale-while-revalidate=1200"
+            )
         return {"paths": paths}
     except Exception as exc:
         logger.warning("Graph path lookup failed: %s", exc)

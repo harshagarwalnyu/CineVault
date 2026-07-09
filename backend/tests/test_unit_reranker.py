@@ -23,7 +23,10 @@ def test_reranker_cohere_strategy(monkeypatch):
     with (
         patch("cohere.Client") as mock_cohere_cls,
         patch("backend.services.recommendation_engine_service.engines.reranker.Ranker"),
-        patch("backend.services.recommendation_engine_service.engines.reranker.COHERE_API_KEY", "test_key"),
+        patch(
+            "backend.services.recommendation_engine_service.engines.reranker.COHERE_API_KEY",
+            "test_key",
+        ),
     ):
         mock_client = MagicMock()
         mock_cohere_cls.return_value = mock_client

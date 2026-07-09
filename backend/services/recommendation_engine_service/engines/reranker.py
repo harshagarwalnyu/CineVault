@@ -33,7 +33,7 @@ class Reranker:
         # Initialize FlashRank (Local Fallback)
         # Using ms-marco-TinyBERT-L-2-v2 (extremely fast on CPU)
         import tempfile
-        
+
         try:
             cache_dir = os.path.join(tempfile.gettempdir(), "flashrank")
             self.flash_ranker = Ranker(

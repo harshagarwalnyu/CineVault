@@ -43,32 +43,43 @@ def validate() -> None:
         log.info("  movie_id_mapping: %d", n_mappings)
 
         # --- Matched movies ---
-        matched = conn.execute(
-            text(
-                "SELECT COUNT(*) FROM movie_id_mapping "
-                "WHERE internal_movie_id IS NOT NULL"
-            )
-        ).scalar() or 0
+        matched = (
+            conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM movie_id_mapping "
+                    "WHERE internal_movie_id IS NOT NULL"
+                )
+            ).scalar()
+            or 0
+        )
         unmatched = n_mappings - matched
         pct = (matched / n_mappings * 100) if n_mappings else 0.0
 
         log.info("\nID mapping:")
-        log.info("  Matched to internal movies: %d / %d (%.1f%%)", matched, n_mappings, pct)
+        log.info(
+            "  Matched to internal movies: %d / %d (%.1f%%)", matched, n_mappings, pct
+        )
         log.info("  Unmatched:                  %d", unmatched)
 
         # --- Ratings with valid movie_id ---
-        ratings_matched = conn.execute(
-            text("SELECT COUNT(*) FROM ml_ratings WHERE movie_id IS NOT NULL")
-        ).scalar() or 0
+        ratings_matched = (
+            conn.execute(
+                text("SELECT COUNT(*) FROM ml_ratings WHERE movie_id IS NOT NULL")
+            ).scalar()
+            or 0
+        )
         ratings_orphan = n_ml_ratings - ratings_matched
         log.info("\nRatings coverage:")
         log.info("  With internal movie_id: %d", ratings_matched)
         log.info("  Orphaned (no match):    %d", ratings_orphan)
 
         # --- Distinct users ---
-        distinct_users = conn.execute(
-            text("SELECT COUNT(DISTINCT ml_user_id) FROM ml_ratings")
-        ).scalar() or 0
+        distinct_users = (
+            conn.execute(
+                text("SELECT COUNT(DISTINCT ml_user_id) FROM ml_ratings")
+            ).scalar()
+            or 0
+        )
         log.info("\nDistinct ML users: %d", distinct_users)
 
         # --- Rating distribution ---
@@ -82,14 +93,16 @@ def validate() -> None:
             )
         ).fetchall()
         for row in dist_rows:
-            bar_len = int(row[1] / max(r[1] for r in dist_rows) * 40) if dist_rows else 0
+            bar_len = (
+                int(row[1] / max(r[1] for r in dist_rows) * 40) if dist_rows else 0
+            )
             bar = "#" * bar_len
             log.info("  %.1f: %8d  %s", row[0], row[1], bar)
 
         # --- Tag stats ---
-        distinct_tags = conn.execute(
-            text("SELECT COUNT(DISTINCT tag) FROM ml_tags")
-        ).scalar() or 0
+        distinct_tags = (
+            conn.execute(text("SELECT COUNT(DISTINCT tag) FROM ml_tags")).scalar() or 0
+        )
         log.info("\nTag stats:")
         log.info("  Total tag applications: %d", n_ml_tags)
         log.info("  Distinct tags:          %d", distinct_tags)

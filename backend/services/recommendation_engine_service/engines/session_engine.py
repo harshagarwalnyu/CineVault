@@ -44,7 +44,11 @@ class SessionTransformerModel(nn.Module):
 
     def forward(self, item_ids: torch.Tensor) -> torch.Tensor:
         batch_size, seq_len = item_ids.shape
-        positions = torch.arange(seq_len, device=item_ids.device).unsqueeze(0).expand(batch_size, -1)
+        positions = (
+            torch.arange(seq_len, device=item_ids.device)
+            .unsqueeze(0)
+            .expand(batch_size, -1)
+        )
 
         x = self.item_embedding(item_ids) + self.pos_embedding(positions)
         padding_mask = item_ids == 0
@@ -118,7 +122,7 @@ class SessionEngine:
             pred_norm = pred_embedding / max(np.linalg.norm(pred_embedding), 1e-8)
 
             scores = normalized_items @ pred_norm
-            top_indices = np.argsort(scores)[::-1][:k + len(indices)]
+            top_indices = np.argsort(scores)[::-1][: k + len(indices)]
 
             seen = set(indices)
             results = []

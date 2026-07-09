@@ -43,6 +43,7 @@ class MoodEngine:
         if self._client is None and settings.GEMINI_API_KEY:
             try:
                 from google import genai
+
                 self._client = genai.Client(api_key=settings.GEMINI_API_KEY)
             except Exception as e:
                 logger.warning("Gemini client init failed: %s", e)
@@ -53,6 +54,7 @@ class MoodEngine:
         if client:
             try:
                 from google.genai import types
+
                 response = client.models.generate_content(
                     model="gemini-2.5-flash",
                     contents=f'Analyze the mood and return JSON: {{primary_mood: one of {VALID_MOODS}, secondary_mood: one of {VALID_MOODS} or null, energy_level: 0-1, valence: 0-1}}. Text: "{text}"',
@@ -70,19 +72,59 @@ class MoodEngine:
         # Keyword fallback
         text_lower = text.lower()
         keyword_map = {
-            "sad": "melancholic", "cry": "melancholic", "depress": "melancholic", "grief": "melancholic",
-            "fun": "happy", "laugh": "happy", "cheer": "happy", "joy": "happy", "feel-good": "happy",
-            "scary": "tense", "suspense": "tense", "thrill": "tense", "edge": "tense", "nerve": "tense",
-            "love": "romantic", "date": "romantic", "heart": "romantic", "passion": "romantic",
-            "think": "intellectual", "smart": "intellectual", "mind": "intellectual", "thought": "intellectual",
-            "relax": "cozy", "chill": "cozy", "comfort": "cozy", "calm": "cozy", "warm": "cozy",
-            "explore": "adventurous", "epic": "adventurous", "adrenaline": "adventurous",
-            "rush": "adventurous", "excit": "adventurous", "pump": "adventurous",
-            "rage": "angry", "revenge": "angry", "fury": "angry", "fight": "angry",
-            "creepy": "dark", "grim": "dark", "disturb": "dark", "bleak": "dark",
-            "motivat": "inspired", "uplift": "inspired", "inspir": "inspired", "triumph": "inspired",
-            "magic": "whimsical", "wonder": "whimsical", "dream": "whimsical", "fairy": "whimsical",
-            "classic": "nostalgic", "old": "nostalgic", "retro": "nostalgic", "childhood": "nostalgic",
+            "sad": "melancholic",
+            "cry": "melancholic",
+            "depress": "melancholic",
+            "grief": "melancholic",
+            "fun": "happy",
+            "laugh": "happy",
+            "cheer": "happy",
+            "joy": "happy",
+            "feel-good": "happy",
+            "scary": "tense",
+            "suspense": "tense",
+            "thrill": "tense",
+            "edge": "tense",
+            "nerve": "tense",
+            "love": "romantic",
+            "date": "romantic",
+            "heart": "romantic",
+            "passion": "romantic",
+            "think": "intellectual",
+            "smart": "intellectual",
+            "mind": "intellectual",
+            "thought": "intellectual",
+            "relax": "cozy",
+            "chill": "cozy",
+            "comfort": "cozy",
+            "calm": "cozy",
+            "warm": "cozy",
+            "explore": "adventurous",
+            "epic": "adventurous",
+            "adrenaline": "adventurous",
+            "rush": "adventurous",
+            "excit": "adventurous",
+            "pump": "adventurous",
+            "rage": "angry",
+            "revenge": "angry",
+            "fury": "angry",
+            "fight": "angry",
+            "creepy": "dark",
+            "grim": "dark",
+            "disturb": "dark",
+            "bleak": "dark",
+            "motivat": "inspired",
+            "uplift": "inspired",
+            "inspir": "inspired",
+            "triumph": "inspired",
+            "magic": "whimsical",
+            "wonder": "whimsical",
+            "dream": "whimsical",
+            "fairy": "whimsical",
+            "classic": "nostalgic",
+            "old": "nostalgic",
+            "retro": "nostalgic",
+            "childhood": "nostalgic",
         }
         # Detect all matching moods (direct and keyword-based)
         detected_moods = []
@@ -96,9 +138,19 @@ class MoodEngine:
         if detected_moods:
             primary = detected_moods[0]
             secondary = detected_moods[1] if len(detected_moods) > 1 else None
-            return {"primary_mood": primary, "secondary_mood": secondary, "energy_level": 0.5, "valence": 0.5}
+            return {
+                "primary_mood": primary,
+                "secondary_mood": secondary,
+                "energy_level": 0.5,
+                "valence": 0.5,
+            }
 
-        return {"primary_mood": "happy", "secondary_mood": None, "energy_level": 0.5, "valence": 0.5}
+        return {
+            "primary_mood": "happy",
+            "secondary_mood": None,
+            "energy_level": 0.5,
+            "valence": 0.5,
+        }
 
     def _compute_genre_scores(self, mood_result: Dict) -> Dict[str, float]:
         scores: Dict[str, float] = {}
@@ -131,19 +183,26 @@ class MoodEngine:
                 continue
             genre_str = str(row.get("genres", "")).strip()
             # Match multi-word genres (e.g. "Science Fiction") via substring containment
-            score = sum(w for g, w in genre_scores.items() if g.lower() in genre_str.lower())
+            score = sum(
+                w for g, w in genre_scores.items() if g.lower() in genre_str.lower()
+            )
             vote_avg = float(row.get("vote_average", 0) or 0)
             # Bayesian weighted rating: (v/(v+m)) * R + (m/(v+m)) * C
             # where m=300 (min votes for confidence), C=6.5 (dataset mean)
             m, C = 300, 6.5
-            bayesian_avg = (vote_count / (vote_count + m)) * vote_avg + (m / (vote_count + m)) * C
+            bayesian_avg = (vote_count / (vote_count + m)) * vote_avg + (
+                m / (vote_count + m)
+            ) * C
 
             # Recency boost: recent movies get a small uplift
             release = str(row.get("release_date", ""))
             recency = 0.0
             try:
-                release_year = int(release[:4]) if release and len(release) >= 4 else 2000
+                release_year = (
+                    int(release[:4]) if release and len(release) >= 4 else 2000
+                )
                 from datetime import date as _date
+
                 age = max(0, _date.today().year - release_year)
                 recency = 0.05 * np.exp(-age / 2.0)
             except (ValueError, TypeError):
@@ -158,18 +217,26 @@ class MoodEngine:
         results = []
         for idx, score in movie_scores[:limit]:
             row = movies_df.loc[idx]
-            results.append({
-                "id": int(row.get("id", 0)),
-                "title": str(row.get("title", "")),
-                "genres": [g.strip() for g in str(row.get("genres", "")).split("|") if g.strip()] if "|" in str(row.get("genres", "")) else [g for g in str(row.get("genres", "")).split() if g],
-                "vote_average": float(row.get("vote_average", 0) or 0),
-                "poster_path": str(row.get("poster_path", "") or ""),
-                "overview": str(row.get("overview", "") or "")[:200],
-                "release_date": str(row.get("release_date", "") or ""),
-                "mood_score": round(score * 100, 1),
-                "mood": mood_result.get("primary_mood", ""),
-                "reason": f"Matches your {mood_result.get('primary_mood', '')} mood",
-            })
+            results.append(
+                {
+                    "id": int(row.get("id", 0)),
+                    "title": str(row.get("title", "")),
+                    "genres": [
+                        g.strip()
+                        for g in str(row.get("genres", "")).split("|")
+                        if g.strip()
+                    ]
+                    if "|" in str(row.get("genres", ""))
+                    else [g for g in str(row.get("genres", "")).split() if g],
+                    "vote_average": float(row.get("vote_average", 0) or 0),
+                    "poster_path": str(row.get("poster_path", "") or ""),
+                    "overview": str(row.get("overview", "") or "")[:200],
+                    "release_date": str(row.get("release_date", "") or ""),
+                    "mood_score": round(score * 100, 1),
+                    "mood": mood_result.get("primary_mood", ""),
+                    "reason": f"Matches your {mood_result.get('primary_mood', '')} mood",
+                }
+            )
 
         return results
 

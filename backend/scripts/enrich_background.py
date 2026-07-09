@@ -103,12 +103,12 @@ class EnrichmentWorker:
     def get_batch(self):
         """Get a batch of movies that need enrichment."""
         query = text("""
-            SELECT id, imdb_id 
-            FROM movies 
-            WHERE id > :last_id 
+            SELECT id, imdb_id
+            FROM movies
+            WHERE id > :last_id
             AND (overview IS NULL OR poster_path IS NULL)
             AND imdb_id IS NOT NULL
-            ORDER BY id ASC 
+            ORDER BY id ASC
             LIMIT :limit
         """)
         with engine.connect() as conn:
@@ -122,8 +122,8 @@ class EnrichmentWorker:
             return
 
         stmt = text("""
-            UPDATE movies 
-            SET 
+            UPDATE movies
+            SET
                 overview = :overview,
                 poster_path = :poster_path,
                 release_date = COALESCE(release_date, :release_date),

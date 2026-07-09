@@ -79,7 +79,6 @@ class NebulaIngestPipeline:
             f"Completed ingestion for {len(results)} movies. DNA saved to {output_path}"
         )
 
-
     def process_batch(self, movie_ids: list):
         """Process multiple movies and store DNA in Qdrant."""
         from sqlmodel import text as sql_text
@@ -90,7 +89,9 @@ class NebulaIngestPipeline:
         with engine.connect() as conn:
             for movie_id in movie_ids:
                 row = conn.execute(
-                    sql_text("SELECT id, title, trailer_youtube_key FROM movies WHERE id = :mid"),
+                    sql_text(
+                        "SELECT id, title, trailer_youtube_key FROM movies WHERE id = :mid"
+                    ),
                     {"mid": movie_id},
                 ).fetchone()
                 if not row:
@@ -102,7 +103,9 @@ class NebulaIngestPipeline:
                 else:
                     features = self.extractor.get_mock_features()
 
-                features_torch = {k: torch.from_numpy(v).unsqueeze(0) for k, v in features.items()}
+                features_torch = {
+                    k: torch.from_numpy(v).unsqueeze(0) for k, v in features.items()
+                }
                 with torch.no_grad():
                     dna = self.encoder(features_torch).squeeze(0).cpu().numpy()
 
@@ -126,7 +129,11 @@ class NebulaIngestPipeline:
                 )
 
             points = [
-                PointStruct(id=r["id"], vector=r["dna"], payload={"title": r["title"], "movie_id": r["id"]})
+                PointStruct(
+                    id=r["id"],
+                    vector=r["dna"],
+                    payload={"title": r["title"], "movie_id": r["id"]},
+                )
                 for r in results
             ]
             if points:
@@ -144,9 +151,15 @@ class NebulaIngestPipeline:
             from backend.config import settings
 
             client = QdrantClient(url=settings.QDRANT_URL)
-            result = client.retrieve(collection_name=settings.NEBULA_COLLECTION_NAME, ids=[movie_id])
+            result = client.retrieve(
+                collection_name=settings.NEBULA_COLLECTION_NAME, ids=[movie_id]
+            )
             if result:
-                return {"movie_id": movie_id, "vector": result[0].vector, "payload": result[0].payload}
+                return {
+                    "movie_id": movie_id,
+                    "vector": result[0].vector,
+                    "payload": result[0].payload,
+                }
         except Exception:
             pass
         return None
@@ -164,7 +177,11 @@ class NebulaIngestPipeline:
                 limit=k,
             )
             return [
-                {"movie_id": r.id, "score": r.score, "title": r.payload.get("title", "")}
+                {
+                    "movie_id": r.id,
+                    "score": r.score,
+                    "title": r.payload.get("title", ""),
+                }
                 for r in results
             ]
         except Exception:

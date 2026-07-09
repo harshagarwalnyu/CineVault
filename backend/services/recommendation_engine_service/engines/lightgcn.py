@@ -75,7 +75,13 @@ class LightGCNModel(nn.Module):
     - Final embedding = mean of layer-0..layer-K embeddings.
     """
 
-    def __init__(self, num_users: int, num_items: int, embed_dim: int = EMBEDDING_DIM, num_layers: int = NUM_LAYERS):
+    def __init__(
+        self,
+        num_users: int,
+        num_items: int,
+        embed_dim: int = EMBEDDING_DIM,
+        num_layers: int = NUM_LAYERS,
+    ):
         super().__init__()
         self.num_users = num_users
         self.num_items = num_items
@@ -87,7 +93,9 @@ class LightGCNModel(nn.Module):
         nn.init.xavier_uniform_(self.user_embedding.weight)
         nn.init.xavier_uniform_(self.item_embedding.weight)
 
-    def forward(self, adj: torch.sparse.FloatTensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, adj: torch.sparse.FloatTensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Propagate and return final user/item embeddings.
 
@@ -103,7 +111,7 @@ class LightGCNModel(nn.Module):
         stacked = torch.stack(all_embs, dim=0)
         final = stacked.mean(dim=0)
         user_embs = final[: self.num_users]
-        item_embs = final[self.num_users:]
+        item_embs = final[self.num_users :]
         return user_embs, item_embs
 
     def bpr_loss(
@@ -126,11 +134,15 @@ class LightGCNModel(nn.Module):
         bpr = -F.logsigmoid(pos_scores - neg_scores).mean()
 
         # L2 reg on the ego embeddings only
-        reg = reg_weight * (
-            self.user_embedding(user_ids).pow(2).sum()
-            + self.item_embedding(pos_ids).pow(2).sum()
-            + self.item_embedding(neg_ids).pow(2).sum()
-        ) / user_ids.size(0)
+        reg = (
+            reg_weight
+            * (
+                self.user_embedding(user_ids).pow(2).sum()
+                + self.item_embedding(pos_ids).pow(2).sum()
+                + self.item_embedding(neg_ids).pow(2).sum()
+            )
+            / user_ids.size(0)
+        )
 
         return bpr + reg
 
@@ -153,7 +165,9 @@ class LightGCNEngine:
         """Load trained LightGCN model."""
         try:
             if not MODEL_PATH.exists():
-                logger.warning("LightGCN model not found at %s. Engine not ready.", MODEL_PATH)
+                logger.warning(
+                    "LightGCN model not found at %s. Engine not ready.", MODEL_PATH
+                )
                 return self
 
             checkpoint = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
@@ -178,7 +192,8 @@ class LightGCNEngine:
                 ).coalesce()
             elif "user_indices" in checkpoint and "item_indices" in checkpoint:
                 self.adj = build_norm_adj(
-                    num_users, num_items,
+                    num_users,
+                    num_items,
                     checkpoint["user_indices"],
                     checkpoint["item_indices"],
                 )
@@ -189,7 +204,12 @@ class LightGCNEngine:
                     self._user_embs, self._item_embs = self.model(self.adj)
 
             self.is_ready = True
-            logger.info("LightGCN engine loaded (%d users, %d items, %d layers).", num_users, num_items, NUM_LAYERS)
+            logger.info(
+                "LightGCN engine loaded (%d users, %d items, %d layers).",
+                num_users,
+                num_items,
+                NUM_LAYERS,
+            )
         except Exception as e:
             logger.error("Failed to load LightGCN engine: %s", e)
             self.is_ready = False
@@ -231,7 +251,11 @@ class LightGCNEngine:
             internal_mid = self.movie_id_map.get(movie_id)
             if internal_uid is None or internal_mid is None:
                 return 0.0
-            score = float(torch.dot(self._user_embs[internal_uid], self._item_embs[internal_mid]).item())
+            score = float(
+                torch.dot(
+                    self._user_embs[internal_uid], self._item_embs[internal_mid]
+                ).item()
+            )
             return score
         except Exception as e:
             logger.error("LightGCN scoring failed: %s", e)

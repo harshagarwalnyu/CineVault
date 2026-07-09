@@ -46,9 +46,7 @@ def get_session() -> Generator[Session, None, None]:
 def hash_password(password: str, iterations: int = 200_000) -> str:
     """Create a PBKDF2-SHA256 password hash for stored credentials."""
     salt = os.urandom(16)
-    digest = hashlib.pbkdf2_hmac(
-        "sha256", password.encode("utf-8"), salt, iterations
-    )
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
     salt_b64 = base64.urlsafe_b64encode(salt).decode("utf-8")
     digest_b64 = base64.urlsafe_b64encode(digest).decode("utf-8")
     return f"pbkdf2_sha256${iterations}${salt_b64}${digest_b64}"
@@ -81,16 +79,20 @@ def authenticate_user(username: str, password: str) -> dict | None:
         return None
 
     with engine.connect() as conn:
-        user = conn.execute(
-            text(
-                """
+        user = (
+            conn.execute(
+                text(
+                    """
                 SELECT id, username, email, password_hash
                 FROM users
                 WHERE username = :username
                 """
-            ),
-            {"username": username},
-        ).mappings().first()
+                ),
+                {"username": username},
+            )
+            .mappings()
+            .first()
+        )
 
     if not user or not verify_password(password, user.get("password_hash")):
         return None
@@ -426,9 +428,13 @@ def get_stats() -> dict[str, int]:
     """Get database statistics."""
     stats: dict[str, int] = {}
     with engine.connect() as conn:
-        stats["movies"] = conn.execute(text("SELECT COUNT(*) FROM movies")).scalar() or 0
+        stats["movies"] = (
+            conn.execute(text("SELECT COUNT(*) FROM movies")).scalar() or 0
+        )
         stats["users"] = conn.execute(text("SELECT COUNT(*) FROM users")).scalar() or 0
-        stats["ratings"] = conn.execute(text("SELECT COUNT(*) FROM ratings")).scalar() or 0
+        stats["ratings"] = (
+            conn.execute(text("SELECT COUNT(*) FROM ratings")).scalar() or 0
+        )
     return stats
 
 

@@ -93,7 +93,9 @@ def build_id_mappings(links: dict[int, dict]) -> None:
         # Batch insert into movie_id_mapping
         batch: list[dict] = []
         for ml_id, info in links.items():
-            internal_id = tmdb_to_internal.get(info["tmdb_id"]) if info["tmdb_id"] else None
+            internal_id = (
+                tmdb_to_internal.get(info["tmdb_id"]) if info["tmdb_id"] else None
+            )
             batch.append(
                 {
                     "ml_movie_id": ml_id,

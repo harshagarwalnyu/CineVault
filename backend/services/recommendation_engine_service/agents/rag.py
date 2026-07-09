@@ -18,7 +18,10 @@ class RAGRetriever:
 
     def _get_engine(self):
         if self._vector_engine is None:
-            from backend.services.recommendation_engine_service.engines.vector_engine import get_vector_engine
+            from backend.services.recommendation_engine_service.engines.vector_engine import (
+                get_vector_engine,
+            )
+
             self._vector_engine = get_vector_engine()
         return self._vector_engine
 
@@ -40,7 +43,11 @@ class RAGRetriever:
                 context_parts.append(
                     f"- {title} ({year}): {genres}. Rating: {rating}/10. {overview}"
                 )
-            return "\n".join(context_parts) if context_parts else "No relevant movies found."
+            return (
+                "\n".join(context_parts)
+                if context_parts
+                else "No relevant movies found."
+            )
         except Exception as e:
             logger.warning("RAG retrieval failed: %s", e)
             return "Movie context unavailable."

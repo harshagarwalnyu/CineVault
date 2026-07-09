@@ -22,9 +22,18 @@ class CinematographicFeatureExtractor:
             with tempfile.TemporaryDirectory() as tmpdir:
                 output = os.path.join(tmpdir, "trailer.mp4")
                 result = subprocess.run(
-                    ["yt-dlp", "-f", "worst[ext=mp4]", "--no-playlist",
-                     "-o", output, f"https://www.youtube.com/watch?v={youtube_key}"],
-                    capture_output=True, text=True, timeout=120,
+                    [
+                        "yt-dlp",
+                        "-f",
+                        "worst[ext=mp4]",
+                        "--no-playlist",
+                        "-o",
+                        output,
+                        f"https://www.youtube.com/watch?v={youtube_key}",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
                 )
                 if result.returncode == 0 and os.path.exists(output):
                     return self.extract_features(output)

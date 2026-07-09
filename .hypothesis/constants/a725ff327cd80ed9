@@ -1,4 +1,0 @@
-# file: /home/bossman/projects/Movies-Recommender/backend/services/recommendation_engine_service/engines/nebula/feature_extractor.py
-# hypothesis_version: 6.151.10
-
-[100, 256, 512, '__main__', 'color_histograms', 'motion_complexity', 'shot_boundaries']

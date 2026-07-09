@@ -73,9 +73,7 @@ class SerendipityEngine:
 
         # Build user rated indices for unexpectedness
         user_rated_indices = [
-            movie_index_by_id[mid]
-            for mid in user_rated_ids
-            if mid in movie_index_by_id
+            movie_index_by_id[mid] for mid in user_rated_ids if mid in movie_index_by_id
         ]
 
         # Compute popularity ranks
@@ -102,23 +100,27 @@ class SerendipityEngine:
                 continue
 
             nov = self.novelty_score(pop_rank_map.get(movie_id, max_rank), max_rank)
-            unexp = self.unexpectedness_score(movie_idx, user_rated_indices, content_matrix)
+            unexp = self.unexpectedness_score(
+                movie_idx, user_rated_indices, content_matrix
+            )
             quality = vote_avg / 10.0
             seren = self.compute_serendipity(nov, unexp, quality)
 
-            serendipity_candidates.append({
-                "id": movie_id,
-                "title": str(row.get("title", "")),
-                "genres": str(row.get("genres", "")),
-                "vote_average": vote_avg,
-                "poster_path": str(row.get("poster_path", "") or ""),
-                "overview": str(row.get("overview", "") or "")[:200],
-                "serendipity_score": round(seren * 100, 1),
-                "reason": "Hidden gem you might not expect to love",
-                "content_score": 0,
-                "collaborative_score": 0,
-                "hybrid_score": round(seren * 100, 1),
-            })
+            serendipity_candidates.append(
+                {
+                    "id": movie_id,
+                    "title": str(row.get("title", "")),
+                    "genres": str(row.get("genres", "")),
+                    "vote_average": vote_avg,
+                    "poster_path": str(row.get("poster_path", "") or ""),
+                    "overview": str(row.get("overview", "") or "")[:200],
+                    "serendipity_score": round(seren * 100, 1),
+                    "reason": "Hidden gem you might not expect to love",
+                    "content_score": 0,
+                    "collaborative_score": 0,
+                    "hybrid_score": round(seren * 100, 1),
+                }
+            )
 
         serendipity_candidates.sort(key=lambda x: x["serendipity_score"], reverse=True)
         top_serendipity = serendipity_candidates[:num_to_replace]

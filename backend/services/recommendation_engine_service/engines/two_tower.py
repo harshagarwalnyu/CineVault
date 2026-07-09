@@ -26,9 +26,25 @@ QDRANT_COLLECTION = "movie_twotower"
 
 # Genre vocabulary for one-hot encoding
 GENRE_VOCAB = [
-    "Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary",
-    "Drama", "Family", "Fantasy", "History", "Horror", "Music", "Mystery",
-    "Romance", "Science Fiction", "Thriller", "TV Movie", "War", "Western",
+    "Action",
+    "Adventure",
+    "Animation",
+    "Comedy",
+    "Crime",
+    "Documentary",
+    "Drama",
+    "Family",
+    "Fantasy",
+    "History",
+    "Horror",
+    "Music",
+    "Mystery",
+    "Romance",
+    "Science Fiction",
+    "Thriller",
+    "TV Movie",
+    "War",
+    "Western",
 ]
 NUM_GENRES = len(GENRE_VOCAB)
 # decade (1 float), language_id (1), vote_avg (1), runtime (1) + genres
@@ -56,7 +72,12 @@ class UserTower(nn.Module):
 class ItemTower(nn.Module):
     """Item embedding: Embedding(movie_id) + features -> MLP([256, 128]) -> 128-dim."""
 
-    def __init__(self, num_items: int, feature_dim: int = ITEM_FEATURE_DIM, embed_dim: int = EMBEDDING_DIM):
+    def __init__(
+        self,
+        num_items: int,
+        feature_dim: int = ITEM_FEATURE_DIM,
+        embed_dim: int = EMBEDDING_DIM,
+    ):
         super().__init__()
         self.embedding = nn.Embedding(num_items, embed_dim)
         self.mlp = nn.Sequential(
@@ -75,7 +96,9 @@ class ItemTower(nn.Module):
 class TwoTowerModel(nn.Module):
     """Two-Tower retrieval model with sampled softmax loss."""
 
-    def __init__(self, num_users: int, num_items: int, feature_dim: int = ITEM_FEATURE_DIM):
+    def __init__(
+        self, num_users: int, num_items: int, feature_dim: int = ITEM_FEATURE_DIM
+    ):
         super().__init__()
         self.user_tower = UserTower(num_users)
         self.item_tower = ItemTower(num_items, feature_dim)
@@ -94,8 +117,12 @@ class TwoTowerModel(nn.Module):
         pos_emb = self.item_tower(pos_item_ids, pos_features)  # (B, 128)
         neg_emb = self.item_tower(neg_item_ids, neg_features)  # (B, 128)
 
-        pos_score = (user_emb * pos_emb).sum(dim=-1) / self.temperature.abs().clamp(min=0.01)
-        neg_score = (user_emb * neg_emb).sum(dim=-1) / self.temperature.abs().clamp(min=0.01)
+        pos_score = (user_emb * pos_emb).sum(dim=-1) / self.temperature.abs().clamp(
+            min=0.01
+        )
+        neg_score = (user_emb * neg_emb).sum(dim=-1) / self.temperature.abs().clamp(
+            min=0.01
+        )
 
         logits = torch.stack([pos_score, neg_score], dim=-1)  # (B, 2)
         labels = torch.zeros(logits.size(0), dtype=torch.long, device=logits.device)
@@ -104,7 +131,9 @@ class TwoTowerModel(nn.Module):
     def get_user_embedding(self, user_ids: torch.Tensor) -> torch.Tensor:
         return self.user_tower(user_ids)
 
-    def get_item_embedding(self, item_ids: torch.Tensor, features: torch.Tensor) -> torch.Tensor:
+    def get_item_embedding(
+        self, item_ids: torch.Tensor, features: torch.Tensor
+    ) -> torch.Tensor:
         return self.item_tower(item_ids, features)
 
 
@@ -143,7 +172,10 @@ class TwoTowerEngine:
         """Load trained model and connect to Qdrant."""
         try:
             if not MODEL_PATH.exists():
-                logger.warning("Two-Tower model not found at %s. Engine will not be ready.", MODEL_PATH)
+                logger.warning(
+                    "Two-Tower model not found at %s. Engine will not be ready.",
+                    MODEL_PATH,
+                )
                 return self
 
             checkpoint = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
@@ -161,6 +193,7 @@ class TwoTowerEngine:
             # Connect to Qdrant
             try:
                 from qdrant_client import QdrantClient
+
                 self.qdrant_client = QdrantClient(url=settings.QDRANT_URL)
                 self.qdrant_client.get_collections()
             except Exception as e:
@@ -168,7 +201,11 @@ class TwoTowerEngine:
                 self.qdrant_client = None
 
             self.is_ready = True
-            logger.info("Two-Tower engine loaded successfully (%d users, %d items).", num_users, num_items)
+            logger.info(
+                "Two-Tower engine loaded successfully (%d users, %d items).",
+                num_users,
+                num_items,
+            )
         except Exception as e:
             logger.error("Failed to load Two-Tower engine: %s", e)
             self.is_ready = False
@@ -208,7 +245,9 @@ class TwoTowerEngine:
             )
             return [int(hit.id) for hit in results.points]
         except Exception as e:
-            logger.warning("Qdrant ANN search failed, falling back to brute-force: %s", e)
+            logger.warning(
+                "Qdrant ANN search failed, falling back to brute-force: %s", e
+            )
             return self._brute_force_search(user_emb, k)
 
     def _brute_force_search(self, user_emb: np.ndarray, k: int) -> List[int]:
@@ -219,10 +258,16 @@ class TwoTowerEngine:
             with torch.no_grad():
                 num_items = len(self.movie_id_map)
                 item_ids = torch.arange(num_items, dtype=torch.long)
-                item_embs = self.model.get_item_embedding(item_ids, self.item_features).numpy()
+                item_embs = self.model.get_item_embedding(
+                    item_ids, self.item_features
+                ).numpy()
                 scores = item_embs @ user_emb
                 top_indices = np.argsort(scores)[::-1][:k]
-                return [self.reverse_movie_map[idx] for idx in top_indices if idx in self.reverse_movie_map]
+                return [
+                    self.reverse_movie_map[idx]
+                    for idx in top_indices
+                    if idx in self.reverse_movie_map
+                ]
         except Exception as e:
             logger.error("Brute-force search failed: %s", e)
             return []
@@ -238,7 +283,9 @@ class TwoTowerEngine:
             # Create / recreate collection
             self.qdrant_client.recreate_collection(
                 collection_name=QDRANT_COLLECTION,
-                vectors_config=VectorParams(size=EMBEDDING_DIM, distance=Distance.COSINE),
+                vectors_config=VectorParams(
+                    size=EMBEDDING_DIM, distance=Distance.COSINE
+                ),
             )
 
             batch_size = 512
@@ -248,19 +295,37 @@ class TwoTowerEngine:
                 internal_id = self.movie_id_map.get(movie_id)
                 if internal_id is None:
                     continue
-                feat = torch.tensor(encode_item_features(row), dtype=torch.float32).unsqueeze(0)
+                feat = torch.tensor(
+                    encode_item_features(row), dtype=torch.float32
+                ).unsqueeze(0)
                 item_tensor = torch.tensor([internal_id], dtype=torch.long)
                 with torch.no_grad():
-                    emb = self.model.get_item_embedding(item_tensor, feat).squeeze(0).numpy()
-                points.append(PointStruct(id=movie_id, vector=emb.tolist(), payload={"movie_id": movie_id}))
+                    emb = (
+                        self.model.get_item_embedding(item_tensor, feat)
+                        .squeeze(0)
+                        .numpy()
+                    )
+                points.append(
+                    PointStruct(
+                        id=movie_id, vector=emb.tolist(), payload={"movie_id": movie_id}
+                    )
+                )
 
                 if len(points) >= batch_size:
-                    self.qdrant_client.upsert(collection_name=QDRANT_COLLECTION, points=points)
+                    self.qdrant_client.upsert(
+                        collection_name=QDRANT_COLLECTION, points=points
+                    )
                     points = []
 
             if points:
-                self.qdrant_client.upsert(collection_name=QDRANT_COLLECTION, points=points)
-            logger.info("Indexed %d items to Qdrant collection '%s'.", len(self.movie_id_map), QDRANT_COLLECTION)
+                self.qdrant_client.upsert(
+                    collection_name=QDRANT_COLLECTION, points=points
+                )
+            logger.info(
+                "Indexed %d items to Qdrant collection '%s'.",
+                len(self.movie_id_map),
+                QDRANT_COLLECTION,
+            )
         except Exception as e:
             logger.error("Failed to index items to Qdrant: %s", e)
 

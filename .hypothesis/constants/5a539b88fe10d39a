@@ -1,4 +1,0 @@
-# file: /home/bossman/projects/Movies-Recommender/backend/services/recommendation_engine_service/engines/reranker.py
-# hypothesis_version: 6.151.10
-
-['COHERE_API_KEY', 'FlashRank error: %s', 'flashrank', 'id', 'meta', 'rerank-english-v3.0', 'rerank_score', 'score', 'text']

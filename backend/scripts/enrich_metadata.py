@@ -76,10 +76,14 @@ async def fetch_enrichment(
 
     await limiter.acquire()
     try:
-        async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+        async with session.get(
+            url, params=params, timeout=aiohttp.ClientTimeout(total=15)
+        ) as resp:
             if resp.status == 429:
                 retry_after = int(resp.headers.get("Retry-After", 2))
-                log.warning("Rate limited on tmdb_id=%d, sleeping %ds", tmdb_id, retry_after)
+                log.warning(
+                    "Rate limited on tmdb_id=%d, sleeping %ds", tmdb_id, retry_after
+                )
                 await asyncio.sleep(retry_after)
                 return await fetch_enrichment(session, limiter, tmdb_id)
             if resp.status != 200:
