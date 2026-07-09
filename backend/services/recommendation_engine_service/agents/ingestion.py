@@ -31,9 +31,9 @@ class IngestionAgent:
 
         # 1. Fetch movies from DB that don't have DNA yet (or just top N for now)
         query = text("""
-            SELECT id, title, overview, genres 
-            FROM movies 
-            ORDER BY popularity_score DESC 
+            SELECT id, title, overview, genres
+            FROM movies
+            ORDER BY popularity_score DESC
             LIMIT :limit
         """)
 

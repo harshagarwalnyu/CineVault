@@ -9,7 +9,12 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from backend.app.schemas import PaginatedResponse
-from backend.app.dependencies import get_api_key, get_rec_engine, get_vec_engine, _total_pages
+from backend.app.dependencies import (
+    get_api_key,
+    get_rec_engine,
+    get_vec_engine,
+    _total_pages,
+)
 from backend.services.recommendation_engine_service.engines.recommendation import (
     EnhancedRecommendationEngine,
 )
@@ -23,7 +28,9 @@ router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 
 
-@router.get("/movies/semantic-search", response_model=PaginatedResponse, tags=["Search"])
+@router.get(
+    "/movies/semantic-search", response_model=PaginatedResponse, tags=["Search"]
+)
 async def semantic_search_movies(
     q: str = Query(..., min_length=1),
     limit: int = Query(20, ge=1, le=100),
@@ -52,7 +59,9 @@ async def search_movies(
     max_rating: float = Query(10, ge=0, le=10),
     year_from: Optional[int] = Query(None, ge=1888, le=2030),
     year_to: Optional[int] = Query(None, ge=1888, le=2030),
-    sort_by: str = Query("vote_average", pattern="^(vote_average|release_date|title|vote_count)$"),
+    sort_by: str = Query(
+        "vote_average", pattern="^(vote_average|release_date|title|vote_count)$"
+    ),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),

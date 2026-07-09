@@ -72,8 +72,11 @@ class TMDBClient:
 
     async def get_popular_movies(self, page: int = 1) -> List[Dict]:
         """Get a list of popular movies."""
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+
         url = f"{self.BASE_URL}/movie/popular"
-        params = {"api_key": self.api_key, "page": page}
+        params = {"api_key": str(self.api_key), "page": str(page)}
 
         async with self.semaphore:
             async with self.session.get(url, params=params) as response:
@@ -86,14 +89,17 @@ class TMDBClient:
         self, page: int = 1, sort_by: str = "popularity.desc", **kwargs
     ) -> List[Dict]:
         """Discover movies with various filters."""
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+
         url = f"{self.BASE_URL}/discover/movie"
         params = {
-            "api_key": self.api_key,
-            "page": page,
+            "api_key": str(self.api_key),
+            "page": str(page),
             "sort_by": sort_by,
             "include_adult": "false",
         }
-        params.update(kwargs)
+        params.update({k: str(v) for k, v in kwargs.items()})
 
         async with self.semaphore:
             async with self.session.get(url, params=params) as response:

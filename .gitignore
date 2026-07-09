@@ -11,8 +11,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -41,6 +41,7 @@ yarn-error.log*
 # Node
 node_modules/
 .next/
+.next-app/
 out/
 build/
 
@@ -57,3 +58,17 @@ Thumbs.db
 # Coverage
 .coverage
 htmlcov/
+
+# Test artifacts
+.hypothesis/
+.pytest_cache/
+.ruff_cache/
+
+# Editor/tool artifacts
+.codex
+*.ps1
+
+# Utility scripts (not part of app)
+fetch_*.sh
+fix_posters.py
+verify_startup.sh

@@ -14,8 +14,8 @@ TOTAL_TARGET = 1_200_000
 def fetch_movie_batch(offset: int, limit: int) -> pd.DataFrame:
     """Fetch a batch of movies from Postgres/SQLite."""
     query = text(f"""
-        SELECT id, title, overview, genres, imdb_rating 
-        FROM movies 
+        SELECT id, title, overview, genres, imdb_rating
+        FROM movies
         WHERE title IS NOT NULL
         ORDER BY imdb_votes DESC
         LIMIT {limit} OFFSET {offset}

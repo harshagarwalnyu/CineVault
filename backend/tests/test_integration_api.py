@@ -51,7 +51,14 @@ async def test_login_invalid_credentials():
 
 @pytest.mark.integration
 async def test_search_movies(mock_engine):
-    data = await search_movies(q="Test", limit=20, rec_engine=mock_engine)
+    data = await search_movies(
+        q="Test",
+        min_rating=0,
+        max_rating=10,
+        page=1,
+        per_page=20,
+        rec_engine=mock_engine,
+    )
     assert data["items"][0]["title"] == "Test Movie"
 
 

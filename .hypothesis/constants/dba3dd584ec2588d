@@ -1,4 +1,0 @@
-# file: /home/bossman/projects/Movies-Recommender/backend/services/recommendation_engine_service/agents/concierge.py
-# hypothesis_version: 6.151.10
-
-[0.0, 0.2, 100, 'agent', 'args', 'assistant', 'content', 'director', 'genres', 'input', 'intermediate_steps', 'messages', 'name', 'output', 'overview', 'rating', 'role', 'title', 'tool', 'tool_calls', 'user', 'vote_average', 'weighted_rating']

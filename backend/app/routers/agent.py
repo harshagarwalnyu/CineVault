@@ -14,7 +14,9 @@ class AgenticDiscoveryInput(BaseModel):
 
 @router.post("/agent/chat", tags=["AI Agent"])
 async def chat_with_agent(payload: AgentInput):
-    from backend.services.recommendation_engine_service.agents.concierge import get_agent
+    from backend.services.recommendation_engine_service.agents.concierge import (
+        get_agent,
+    )
 
     agent = get_agent()
     response = agent.run(
@@ -40,7 +42,9 @@ async def agentic_discovery_endpoint(payload: AgenticDiscoveryInput):
 @router.get("/agent/conversations/{user_id}", tags=["AI Agent"])
 async def get_user_conversations(user_id: int):
     """Get conversation history for a user."""
-    from backend.services.recommendation_engine_service.agents.memory import get_conversation_memory
+    from backend.services.recommendation_engine_service.agents.memory import (
+        get_conversation_memory,
+    )
 
     memory = get_conversation_memory()
     conversations = memory.get_user_conversations(user_id)

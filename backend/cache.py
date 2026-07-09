@@ -10,7 +10,7 @@ import json
 import logging
 import threading
 import time
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 import redis
 
@@ -52,7 +52,9 @@ def _local_set(key: str, value: Any, ttl: float) -> None:
             _evict_expired()
             # If still at capacity, drop oldest quarter
             if len(_store) >= _MAX_ENTRIES:
-                to_drop = sorted(_store, key=lambda k: _store[k][0])[: _MAX_ENTRIES // 4]
+                to_drop = sorted(_store, key=lambda k: _store[k][0])[
+                    : _MAX_ENTRIES // 4
+                ]
                 for k in to_drop:
                     del _store[k]
         _store[key] = (time.monotonic() + ttl, value)
@@ -113,7 +115,7 @@ def cached(
         try:
             raw = r.get(key)
             if raw is not None:
-                val = json.loads(raw)
+                val = json.loads(cast(str, raw))
                 _local_set(key, val, ttl)
                 return val
         except Exception:

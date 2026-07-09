@@ -3,6 +3,7 @@
 import logging
 import threading
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from sqlmodel import text
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # ============== Request Metrics ==============
-REQUEST_METRICS = {
+REQUEST_METRICS: dict[str, Any] = {
     "total_requests": 0,
     "total_errors": 0,
     "recent_latencies_ms": [],
@@ -67,11 +68,8 @@ def compute_slo_snapshot() -> dict:
 
 
 def _engine_snapshot(rec_engine: EnhancedRecommendationEngine) -> dict:
-    movies_loaded = (
-        len(rec_engine.movies_df)
-        if getattr(rec_engine, "movies_df", None) is not None
-        else 0
-    )
+    movies_df = getattr(rec_engine, "movies_df", None)
+    movies_loaded = len(movies_df) if movies_df is not None else 0
     ready = bool(rec_engine.is_trained and movies_loaded > 0)
     return {
         "status": "healthy" if ready else "warming_up",
@@ -102,7 +100,7 @@ async def health_check_v1(
 
 @router.get("/admin/health/full", tags=["Admin"])
 async def full_health_check(api_key: str = Depends(get_api_key)):
-    health = {
+    health: dict[str, Any] = {
         "status": "healthy",
         "components": {
             "database": "unhealthy",

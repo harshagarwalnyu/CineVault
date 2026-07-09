@@ -60,6 +60,10 @@ dev = [
     "bandit",
     "playwright",
     "hypothesis",
+    "pandas-stubs>=3.0.3.260530",
+    "types-tqdm>=4.68.0.20260608",
+    "types-networkx>=3.6.1.20260624",
+    "scipy-stubs>=1.18.0.0",
 ]
 
 [tool.uv]
@@ -69,6 +73,16 @@ index = [
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
+
+[[tool.mypy.overrides]]
+module = [
+    "sklearn.*",
+    "community.*",
+    "flashrank.*",
+    "locust.*",
+    "surrealdb.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

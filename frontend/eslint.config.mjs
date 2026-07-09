@@ -5,7 +5,7 @@ import tsParser from '@typescript-eslint/parser';
 
 export default defineConfig([
   {
-    ignores: ['.next/**', 'out/**', 'build/**', 'next-env.d.ts'],
+    ignores: ['.next/**', '.next-app/**', 'out/**', 'build/**', 'next-env.d.ts'],
   },
   {
     files: ['**/*.{js,mjs,jsx,ts,tsx}'],

@@ -80,7 +80,7 @@ def main():
 
         batch_size = 4096
         for start in range(0, len(perm), batch_size):
-            batch_idx = perm[start:start + batch_size]
+            batch_idx = perm[start : start + batch_size]
             batch_users = torch.tensor(user_indices[batch_idx], dtype=torch.long)
             batch_pos = torch.tensor(item_indices[batch_idx], dtype=torch.long)
 
@@ -102,7 +102,15 @@ def main():
             neg_scores = (u_emb * neg_emb).sum(dim=1)
 
             loss = -torch.log(torch.sigmoid(pos_scores - neg_scores) + 1e-8).mean()
-            reg_loss = 1e-5 * (u_emb.norm(2).pow(2) + pos_emb.norm(2).pow(2) + neg_emb.norm(2).pow(2)) / len(batch_idx)
+            reg_loss = (
+                1e-5
+                * (
+                    u_emb.norm(2).pow(2)
+                    + pos_emb.norm(2).pow(2)
+                    + neg_emb.norm(2).pow(2)
+                )
+                / len(batch_idx)
+            )
             total = loss + reg_loss
 
             optimizer.zero_grad()

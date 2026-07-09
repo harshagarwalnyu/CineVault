@@ -97,7 +97,7 @@ class QdrantVectorEngine:
 
         query = text("""
             SELECT id, title, overview, genres
-            FROM movies 
+            FROM movies
             WHERE overview IS NOT NULL AND overview != ''
             ORDER BY vote_count DESC
             LIMIT :limit
@@ -111,7 +111,9 @@ class QdrantVectorEngine:
 
         model = self.load_model()
         if model is None:
-            logger.warning("Skipping vector indexing because the embedding model is unavailable.")
+            logger.warning(
+                "Skipping vector indexing because the embedding model is unavailable."
+            )
             return
 
         # Prepare text batch
@@ -128,7 +130,6 @@ class QdrantVectorEngine:
 
         # FastEmbed generator with progress bar
         # We process in batches to show progress
-
 
         with tqdm(total=len(documents), desc="Embedding", unit="doc") as pbar:
             for i in range(0, len(df), batch_size):
@@ -165,7 +166,9 @@ class QdrantVectorEngine:
 
         model = self.load_model()
         if model is None:
-            from backend.services.recommendation_engine_service.engines.recommendation import get_engine
+            from backend.services.recommendation_engine_service.engines.recommendation import (
+                get_engine,
+            )
 
             fallback_engine = get_engine()
             fallback_results, _ = fallback_engine.search_movies(query=query, limit=k)
@@ -197,7 +200,9 @@ class QdrantVectorEngine:
             return candidates[:k]
 
         # Apply SOTA Reranking (FlashRank / Cohere)
-        from backend.services.recommendation_engine_service.engines.reranker import get_reranker
+        from backend.services.recommendation_engine_service.engines.reranker import (
+            get_reranker,
+        )
 
         reranker = get_reranker()
         reranked_results = reranker.rerank(query, candidates, top_k=k)

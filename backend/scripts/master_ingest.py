@@ -121,16 +121,35 @@ async def run_ingestion(pages: int = 10):
     create_tables()
 
     # SOTA Multilingual: Global cinematic coverage
-    languages = ['en', 'hi', 'es', 'fr', 'ja', 'ko', 'zh', 'de', 'it', 'pt', 'ru', 'te', 'ta', '']
+    languages = [
+        "en",
+        "hi",
+        "es",
+        "fr",
+        "ja",
+        "ko",
+        "zh",
+        "de",
+        "it",
+        "pt",
+        "ru",
+        "te",
+        "ta",
+        "",
+    ]
 
     async with TMDBClient() as client:
         for lang in languages:
             logging.info(f"--- Discovering movies for language: '{lang}' ---")
             for page in range(1, pages + 1):
                 logging.info(f"Processing TMDB page {page} for language '{lang}'...")
-                movies = await client.discover_movies(page=page, with_original_language=lang)
+                movies = await client.discover_movies(
+                    page=page, with_original_language=lang
+                )
                 if not movies:
-                    logging.warning(f"No movies found on page {page} for language '{lang}'")
+                    logging.warning(
+                        f"No movies found on page {page} for language '{lang}'"
+                    )
                     break
 
                 tasks = [client.fetch_movie_details(m["id"]) for m in movies]
@@ -162,7 +181,7 @@ async def run_ingestion(pages: int = 10):
                         "popularity_score": m.get("popularity", 0),
                         "release_date": m.get("release_date", ""),
                         "runtime": m.get("runtime", 0),
-                        "original_language": m.get("original_language", lang)
+                        "original_language": m.get("original_language", lang),
                     }
                     detailed_movies.append(movie_data)
 

@@ -99,7 +99,9 @@ def main():
     dataset = RatingDataset(all_users, all_items_list, all_labels)
     loader = DataLoader(dataset, batch_size=4096, shuffle=True)
 
-    from backend.services.recommendation_engine_service.engines.two_tower import TwoTowerModel
+    from backend.services.recommendation_engine_service.engines.two_tower import (
+        TwoTowerModel,
+    )
 
     model = TwoTowerModel(num_users + 1, num_items + 1)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
@@ -159,7 +161,7 @@ def main():
         # Batch upload
         batch_size = 1000
         for i in range(0, len(points), batch_size):
-            client.upsert(collection_name=collection, points=points[i:i + batch_size])
+            client.upsert(collection_name=collection, points=points[i : i + batch_size])
 
         logger.info("Indexed %d item embeddings in Qdrant", num_items)
     except Exception as e:

@@ -1,4 +1,0 @@
-# file: /home/bossman/projects/Movies-Recommender/backend/app/schemas.py
-# hypothesis_version: 6.151.10
-
-[0.2, 0.6, 100, '*', '1080p.WEB', '720p.WEB', 'Field to sort by', 'Minimum movie rating', 'Rating from 1 to 10', 'Success', 'asc', 'before', 'collaborative', 'content', 'desc', 'hybrid', 'personalized', 'trending', 'vote_average']

@@ -11,7 +11,7 @@ from typing import List, Dict, Optional
 
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_core.tools import tool
 
 from backend.services.recommendation_engine_service.engines.vector_engine import (
@@ -48,7 +48,12 @@ def search_movies_metadata(
         genre=genre, director=director, min_rating=min_rating, limit=5
     )
     simplified = [
-        {"title": m["title"], "director": m.get("director"), "rating": m["vote_average"], "overview": (m.get("overview") or "")[:100]}
+        {
+            "title": m["title"],
+            "director": m.get("director"),
+            "rating": m["vote_average"],
+            "overview": (m.get("overview") or "")[:100],
+        }
         for m in results
     ]
     return json.dumps(simplified)
@@ -60,7 +65,11 @@ def get_trending_movies() -> str:
     engine = get_engine()
     results = engine.get_trending(limit=5)
     simplified = [
-        {"title": m["title"], "genres": m["genres"], "rating": m.get("weighted_rating", m.get("vote_average"))}
+        {
+            "title": m["title"],
+            "genres": m["genres"],
+            "rating": m.get("weighted_rating", m.get("vote_average")),
+        }
         for m in results
     ]
     return json.dumps(simplified)
@@ -77,7 +86,22 @@ def get_movie_details(title_or_id: str) -> str:
         movie = engine.find_movie(title_or_id)
     if not movie:
         return json.dumps({"error": "Movie not found"})
-    return json.dumps({k: movie[k] for k in ["title", "genres", "director", "cast", "vote_average", "overview", "release_date", "runtime"] if k in movie})
+    return json.dumps(
+        {
+            k: movie[k]
+            for k in [
+                "title",
+                "genres",
+                "director",
+                "cast",
+                "vote_average",
+                "overview",
+                "release_date",
+                "runtime",
+            ]
+            if k in movie
+        }
+    )
 
 
 @tool
@@ -88,7 +112,17 @@ def get_recommendations_for_movie(title: str) -> str:
     if not movie:
         return json.dumps({"error": "Movie not found"})
     recs = engine.get_content_recommendations(movie["id"], limit=5)
-    return json.dumps([{"title": r["title"], "genres": r["genres"], "rating": r["vote_average"], "reason": r.get("reason", "")} for r in recs])
+    return json.dumps(
+        [
+            {
+                "title": r["title"],
+                "genres": r["genres"],
+                "rating": r["vote_average"],
+                "reason": r.get("reason", ""),
+            }
+            for r in recs
+        ]
+    )
 
 
 @tool
@@ -100,17 +134,27 @@ def compare_movies(movie1: str, movie2: str) -> str:
     if not m1 or not m2:
         return json.dumps({"error": "One or both movies not found"})
     fields = ["title", "genres", "director", "vote_average", "runtime", "release_date"]
-    return json.dumps({"movie1": {k: m1.get(k) for k in fields}, "movie2": {k: m2.get(k) for k in fields}})
+    return json.dumps(
+        {
+            "movie1": {k: m1.get(k) for k in fields},
+            "movie2": {k: m2.get(k) for k in fields},
+        }
+    )
 
 
 @tool
 def detect_mood_and_recommend(mood_text: str) -> str:
     """Detect user's mood from text and recommend matching movies."""
     try:
-        from backend.services.recommendation_engine_service.engines.mood_engine import get_mood_engine
+        from backend.services.recommendation_engine_service.engines.mood_engine import (
+            get_mood_engine,
+        )
+
         mood_engine = get_mood_engine()
         rec_engine = get_engine()
-        results = mood_engine.get_mood_recommendations(mood_text, rec_engine.movies_df, limit=5)
+        results = mood_engine.get_mood_recommendations(
+            mood_text, rec_engine.movies_df, limit=5
+        )
         return json.dumps(results)
     except Exception as e:
         return json.dumps({"error": str(e)})
@@ -125,7 +169,7 @@ def get_user_taste_profile(user_id: int) -> str:
     user_ratings = engine.ratings_df[engine.ratings_df["user_id"] == user_id]
     if len(user_ratings) == 0:
         return json.dumps({"error": "No ratings found for user"})
-    genre_scores = {}
+    genre_scores: dict[str, list[float]] = {}
     for _, row in user_ratings.iterrows():
         movie = engine.get_movie_by_id(int(row["movie_id"]))
         if movie and movie.get("genres"):
@@ -138,15 +182,29 @@ def get_user_taste_profile(user_id: int) -> str:
                 genre_list = [g.strip() for g in str(genres_val).split() if g.strip()]
             for genre in genre_list:
                 genre_scores.setdefault(genre, []).append(float(row["rating"]))
-    profile = {g: round(sum(s) / len(s), 1) for g, s in sorted(genre_scores.items(), key=lambda x: -sum(x[1]) / len(x[1]))[:8]}
-    return json.dumps({"user_id": user_id, "genre_preferences": profile, "total_ratings": len(user_ratings)})
+    profile = {
+        g: round(sum(s) / len(s), 1)
+        for g, s in sorted(genre_scores.items(), key=lambda x: -sum(x[1]) / len(x[1]))[
+            :8
+        ]
+    }
+    return json.dumps(
+        {
+            "user_id": user_id,
+            "genre_preferences": profile,
+            "total_ratings": len(user_ratings),
+        }
+    )
 
 
 @tool
 def find_movie_connections(movie1: str, movie2: str) -> str:
     """Find connections between two movies via shared cast/crew/genres."""
     try:
-        from backend.services.recommendation_engine_service.engines.knowledge_graph import get_knowledge_graph
+        from backend.services.recommendation_engine_service.engines.knowledge_graph import (
+            get_knowledge_graph,
+        )
+
         kg = get_knowledge_graph()
         paths = kg.find_paths(movie1, movie2)
         return json.dumps({"paths": paths[:3]})
@@ -158,10 +216,15 @@ def find_movie_connections(movie1: str, movie2: str) -> str:
 def create_mood_playlist(mood: str, count: int = 5) -> str:
     """Create a movie playlist matching a specific mood."""
     try:
-        from backend.services.recommendation_engine_service.engines.mood_engine import get_mood_engine
+        from backend.services.recommendation_engine_service.engines.mood_engine import (
+            get_mood_engine,
+        )
+
         mood_engine = get_mood_engine()
         rec_engine = get_engine()
-        results = mood_engine.get_mood_recommendations(mood, rec_engine.movies_df, limit=count)
+        results = mood_engine.get_mood_recommendations(
+            mood, rec_engine.movies_df, limit=count
+        )
         return json.dumps(results)
     except Exception as e:
         return json.dumps({"error": str(e)})
@@ -236,7 +299,10 @@ class MovieAgent:
         # RAG: retrieve context for grounding
         rag_context = ""
         try:
-            from backend.services.recommendation_engine_service.agents.rag import get_rag_retriever
+            from backend.services.recommendation_engine_service.agents.rag import (
+                get_rag_retriever,
+            )
+
             retriever = get_rag_retriever()
             rag_context = retriever.retrieve(query, k=5)
         except Exception:
@@ -246,7 +312,10 @@ class MovieAgent:
         preferences = {}
         if session_id:
             try:
-                from backend.services.recommendation_engine_service.agents.memory import get_conversation_memory
+                from backend.services.recommendation_engine_service.agents.memory import (
+                    get_conversation_memory,
+                )
+
                 memory = get_conversation_memory()
                 memory.save_turn(session_id, user_id, "user", query)
                 preferences = memory.get_preferences(session_id)
@@ -254,15 +323,23 @@ class MovieAgent:
                 pass
 
         # Build messages
-        messages = []
+        messages: list[BaseMessage] = []
 
         # Prepend RAG context if available
         if rag_context:
-            messages.append(SystemMessage(content=f"Relevant movies from our database:\n{rag_context}"))
+            messages.append(
+                SystemMessage(
+                    content=f"Relevant movies from our database:\n{rag_context}"
+                )
+            )
 
         if preferences:
             pref_str = json.dumps(preferences)
-            messages.append(SystemMessage(content=f"User preferences from prior conversation: {pref_str}"))
+            messages.append(
+                SystemMessage(
+                    content=f"User preferences from prior conversation: {pref_str}"
+                )
+            )
 
         for turn in history:
             role = turn.get("role")
@@ -289,9 +366,14 @@ class MovieAgent:
             # Save assistant response to memory
             if session_id:
                 try:
-                    from backend.services.recommendation_engine_service.agents.memory import get_conversation_memory
+                    from backend.services.recommendation_engine_service.agents.memory import (
+                        get_conversation_memory,
+                    )
+
                     memory = get_conversation_memory()
-                    memory.save_turn(session_id, user_id, "assistant", response_message.content)
+                    memory.save_turn(
+                        session_id, user_id, "assistant", response_message.content
+                    )
                     memory.extract_preferences(session_id)
                 except Exception:
                     pass

@@ -13,7 +13,7 @@ Production-grade recommendation engine with:
 import difflib
 import re
 from collections import Counter
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -38,10 +38,25 @@ logger = logging.getLogger(__name__)
 
 # ─── Known TMDB multi-word genres (longest first for greedy matching) ────
 _TMDB_GENRES = [
-    "Science Fiction", "TV Movie",  # multi-word — must match before single words
-    "Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary",
-    "Drama", "Family", "Fantasy", "History", "Horror", "Music", "Mystery",
-    "Romance", "Thriller", "War", "Western",
+    "Science Fiction",
+    "TV Movie",  # multi-word — must match before single words
+    "Action",
+    "Adventure",
+    "Animation",
+    "Comedy",
+    "Crime",
+    "Documentary",
+    "Drama",
+    "Family",
+    "Fantasy",
+    "History",
+    "Horror",
+    "Music",
+    "Mystery",
+    "Romance",
+    "Thriller",
+    "War",
+    "Western",
 ]
 
 GENRE_SEPARATOR = "|"
@@ -65,7 +80,9 @@ def normalize_genres(raw: str) -> str:
         try:
             parsed = json.loads(raw)
             if isinstance(parsed, list):
-                return GENRE_SEPARATOR.join(str(g).strip() for g in parsed if str(g).strip())
+                return GENRE_SEPARATOR.join(
+                    str(g).strip() for g in parsed if str(g).strip()
+                )
         except (json.JSONDecodeError, TypeError):
             pass  # Fall through to other formats
 
@@ -84,7 +101,7 @@ def normalize_genres(raw: str) -> str:
         for genre in _TMDB_GENRES:
             if remaining.lower().startswith(genre.lower()):
                 genres.append(genre)
-                remaining = remaining[len(genre):]
+                remaining = remaining[len(genre) :]
                 matched = True
                 break
         if not matched:
@@ -127,7 +144,7 @@ class RedisRecommendationCache:
             return None
         try:
             cached = self.client.get(key)
-            return json.loads(cached) if cached else None
+            return json.loads(cast(str, cached)) if cached else None
         except Exception:
             return None
 
@@ -182,11 +199,7 @@ class EnhancedRecommendationEngine:
 
     @staticmethod
     def _repeat_text(series: pd.Series, times: int) -> pd.Series:
-        cleaned = (
-            series.astype(str)
-            .str.replace(r"\s+", " ", regex=True)
-            .str.strip()
-        )
+        cleaned = series.astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
         if times <= 1:
             return cleaned
         return cleaned.map(lambda value: " ".join([value] * times) if value else "")
@@ -201,9 +214,13 @@ class EnhancedRecommendationEngine:
         decades = years.map(
             lambda year: f"decade_{year[:3]}0" if isinstance(year, str) and year else ""
         )
-        return years.map(
-            lambda year: f"year_{year}" if isinstance(year, str) and year else ""
-        ) + " " + decades
+        return (
+            years.map(
+                lambda year: f"year_{year}" if isinstance(year, str) and year else ""
+            )
+            + " "
+            + decades
+        )
 
     def _load_movies(self, conn):
         """Fetch and preprocess movie data."""
@@ -280,10 +297,18 @@ class EnhancedRecommendationEngine:
         for part in feature_parts[1:]:
             combined_features = (combined_features + " " + part).str.strip()
         self.movies_df["combined_features"] = combined_features
-        self.movies_df["title_normalized"] = self.movies_df["title"].astype(str).str.casefold()
-        self.movies_df["genres_normalized"] = self.movies_df["genres"].astype(str).str.casefold()
-        self.movies_df["director_normalized"] = self.movies_df["director"].astype(str).str.casefold()
-        self.movies_df["cast_normalized"] = self.movies_df["cast"].astype(str).str.casefold()
+        self.movies_df["title_normalized"] = (
+            self.movies_df["title"].astype(str).str.casefold()
+        )
+        self.movies_df["genres_normalized"] = (
+            self.movies_df["genres"].astype(str).str.casefold()
+        )
+        self.movies_df["director_normalized"] = (
+            self.movies_df["director"].astype(str).str.casefold()
+        )
+        self.movies_df["cast_normalized"] = (
+            self.movies_df["cast"].astype(str).str.casefold()
+        )
 
         self._movie_index_by_id = {
             safe_int(movie_id): int(idx)
@@ -345,10 +370,14 @@ class EnhancedRecommendationEngine:
                 )
                 if not ml_ratings.empty:
                     if self.ratings_df is not None and not self.ratings_df.empty:
-                        self.ratings_df = pd.concat([self.ratings_df, ml_ratings], ignore_index=True)
+                        self.ratings_df = pd.concat(
+                            [self.ratings_df, ml_ratings], ignore_index=True
+                        )
                     else:
                         self.ratings_df = ml_ratings
-                    logger.info(f"Loaded {len(ml_ratings)} MovieLens ratings (normalized 0.5-5.0 -> 1-10 scale)")
+                    logger.info(
+                        f"Loaded {len(ml_ratings)} MovieLens ratings (normalized 0.5-5.0 -> 1-10 scale)"
+                    )
             except Exception as e:
                 logger.warning(f"MovieLens ratings not available: {e}")
 
@@ -387,35 +416,50 @@ class EnhancedRecommendationEngine:
         movie_id_mapping = self._movie_index_by_id
 
         def _init_hstu():
-            from backend.services.recommendation_engine_service.engines.hstu_engine import get_hstu_engine
+            from backend.services.recommendation_engine_service.engines.hstu_engine import (
+                get_hstu_engine,
+            )
+
             eng = get_hstu_engine()
             if not eng.is_ready:
                 eng.load(movies_df=movies_df, movie_id_mapping=movie_id_mapping)
             return "HSTU"
 
         def _init_clrec():
-            from backend.services.recommendation_engine_service.engines.clrec_engine import get_clrec_engine
+            from backend.services.recommendation_engine_service.engines.clrec_engine import (
+                get_clrec_engine,
+            )
+
             eng = get_clrec_engine()
             if not eng.is_ready:
                 eng.load(movies_df=movies_df)
             return "CLRec"
 
         def _init_bandit():
-            from backend.services.recommendation_engine_service.engines.bandit_engine import get_bandit_engine
+            from backend.services.recommendation_engine_service.engines.bandit_engine import (
+                get_bandit_engine,
+            )
+
             eng = get_bandit_engine()
             if not eng.is_ready:
                 eng.load(movies_df=movies_df)
             return "Bandit"
 
         def _init_temporal():
-            from backend.services.recommendation_engine_service.engines.temporal_engine import get_temporal_engine
+            from backend.services.recommendation_engine_service.engines.temporal_engine import (
+                get_temporal_engine,
+            )
+
             eng = get_temporal_engine()
             if not eng.is_ready and ratings_df is not None and not ratings_df.empty:
                 eng.load(ratings_df=ratings_df, movies_df=movies_df)
             return "Temporal"
 
         def _init_mtl():
-            from backend.services.recommendation_engine_service.engines.multiobjective_engine import get_multiobjective_engine
+            from backend.services.recommendation_engine_service.engines.multiobjective_engine import (
+                get_multiobjective_engine,
+            )
+
             eng = get_multiobjective_engine()
             if not eng.is_ready:
                 eng.load(movies_df=movies_df)
@@ -423,7 +467,9 @@ class EnhancedRecommendationEngine:
 
         tasks = [_init_hstu, _init_clrec, _init_bandit, _init_temporal, _init_mtl]
 
-        with ThreadPoolExecutor(max_workers=5, thread_name_prefix="engine-init") as pool:
+        with ThreadPoolExecutor(
+            max_workers=5, thread_name_prefix="engine-init"
+        ) as pool:
             futures = {pool.submit(fn): fn.__name__ for fn in tasks}
             for future in as_completed(futures):
                 name = futures[future]
@@ -490,12 +536,14 @@ class EnhancedRecommendationEngine:
             if n_factors < 1:
                 return
 
+            U: np.ndarray
+            Vt: np.ndarray
             U, sigma, Vt = svds(matrix, k=n_factors)
             sigma = np.diag(sigma)
 
-            self.collab_predictions = np.dot(np.dot(U, sigma), Vt)
+            preds = np.dot(np.dot(U, sigma), Vt)
             self.collab_predictions = pd.DataFrame(
-                self.collab_predictions + user_means.values.reshape(-1, 1),
+                preds + user_means.to_numpy().reshape(-1, 1),
                 columns=pivot.columns,
             )
         except Exception as e:
@@ -617,7 +665,9 @@ class EnhancedRecommendationEngine:
 
     @staticmethod
     def _scale_scores(scores: np.ndarray) -> np.ndarray:
-        values = np.nan_to_num(np.asarray(scores, dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
+        values = np.nan_to_num(
+            np.asarray(scores, dtype=float), nan=0.0, posinf=0.0, neginf=0.0
+        )
         if values.size == 0:
             return values
         min_score = float(values.min())
@@ -693,50 +743,80 @@ class EnhancedRecommendationEngine:
 
     # Language names → ISO 639-1 codes used in original_language column
     _LANGUAGE_MAP: Dict[str, str] = {
-        "hindi": "hi", "bollywood": "hi",
-        "tamil": "ta", "kollywood": "ta",
-        "telugu": "te", "tollywood": "te",
-        "malayalam": "ml", "mollywood": "ml",
-        "kannada": "kn", "sandalwood": "kn",
-        "bengali": "bn", "bangla": "bn",
+        "hindi": "hi",
+        "bollywood": "hi",
+        "tamil": "ta",
+        "kollywood": "ta",
+        "telugu": "te",
+        "tollywood": "te",
+        "malayalam": "ml",
+        "mollywood": "ml",
+        "kannada": "kn",
+        "sandalwood": "kn",
+        "bengali": "bn",
+        "bangla": "bn",
         "marathi": "mr",
         "punjabi": "pa",
         "gujarati": "gu",
-        "english": "en", "hollywood": "en",
-        "korean": "ko", "k-drama": "ko",
-        "japanese": "ja", "anime": "ja",
+        "english": "en",
+        "hollywood": "en",
+        "korean": "ko",
+        "k-drama": "ko",
+        "japanese": "ja",
+        "anime": "ja",
         "french": "fr",
         "spanish": "es",
         "italian": "it",
-        "chinese": "zh", "mandarin": "zh",
+        "chinese": "zh",
+        "mandarin": "zh",
         "russian": "ru",
         "turkish": "tr",
         "german": "de",
         "portuguese": "pt",
         "thai": "th",
-        "filipino": "tl", "tagalog": "tl",
+        "filipino": "tl",
+        "tagalog": "tl",
     }
 
     # Common genre aliases → canonical genre names
     _GENRE_ALIASES: Dict[str, str] = {
-        "sci-fi": "science fiction", "scifi": "science fiction",
-        "rom-com": "romance", "romcom": "romance",
-        "biopic": "history", "biographical": "history",
-        "superhero": "action", "martial-arts": "action",
-        "animated": "animation", "anime": "animation",
-        "scary": "horror", "slasher": "horror", "ghost": "horror",
-        "whodunit": "mystery", "detective": "mystery",
-        "spy": "thriller", "espionage": "thriller",
-        "heist": "crime", "gangster": "crime",
-        "musical": "music", "war-film": "war",
-        "rom": "romance", "romantic": "romance",
-        "funny": "comedy", "humour": "comedy", "humor": "comedy",
-        "suspense": "thriller", "suspenseful": "thriller",
-        "kids": "family", "children": "family",
-        "period": "history", "historical": "history",
+        "sci-fi": "science fiction",
+        "scifi": "science fiction",
+        "rom-com": "romance",
+        "romcom": "romance",
+        "biopic": "history",
+        "biographical": "history",
+        "superhero": "action",
+        "martial-arts": "action",
+        "animated": "animation",
+        "anime": "animation",
+        "scary": "horror",
+        "slasher": "horror",
+        "ghost": "horror",
+        "whodunit": "mystery",
+        "detective": "mystery",
+        "spy": "thriller",
+        "espionage": "thriller",
+        "heist": "crime",
+        "gangster": "crime",
+        "musical": "music",
+        "war-film": "war",
+        "rom": "romance",
+        "romantic": "romance",
+        "funny": "comedy",
+        "humour": "comedy",
+        "humor": "comedy",
+        "suspense": "thriller",
+        "suspenseful": "thriller",
+        "kids": "family",
+        "children": "family",
+        "period": "history",
+        "historical": "history",
         "fantasy-adventure": "fantasy",
-        "space": "science fiction", "aliens": "science fiction",
-        "robots": "science fiction", "dystopian": "science fiction",
+        "space": "science fiction",
+        "aliens": "science fiction",
+        "robots": "science fiction",
+        "dystopian": "science fiction",
     }
 
     def _build_query_context(self, query: str) -> Dict[str, Any]:
@@ -782,7 +862,23 @@ class EnhancedRecommendationEngine:
 
         # Extract non-genre, non-language keywords for subgenre/keyword boosting
         # (e.g. "spy", "heist", "zombie", "war", "space")
-        stopwords = {"movie", "movies", "film", "films", "good", "best", "top", "new", "old", "like", "with", "the", "and", "a", "an"}
+        stopwords = {
+            "movie",
+            "movies",
+            "film",
+            "films",
+            "good",
+            "best",
+            "top",
+            "new",
+            "old",
+            "like",
+            "with",
+            "the",
+            "and",
+            "a",
+            "an",
+        }
         # Include individual words from multi-word genres (e.g., "science", "fiction")
         # so they get excluded from keyword extraction
         genre_words: set[str] = set()
@@ -792,7 +888,15 @@ class EnhancedRecommendationEngine:
             genre_words.update(gc.split())
         lang_words = set(self._LANGUAGE_MAP.keys())
         alias_words = set(self._GENRE_ALIASES.keys())
-        keywords = query_words - genres - genre_words - lang_words - alias_words - stopwords - set(years)
+        keywords = (
+            query_words
+            - genres
+            - genre_words
+            - lang_words
+            - alias_words
+            - stopwords
+            - set(years)
+        )
 
         # Remove language, alias, and generic stopwords from the TF-IDF query to
         # prevent irrelevant matches (e.g., "hindi" matching "Hindi Medium",
@@ -824,9 +928,27 @@ class EnhancedRecommendationEngine:
         liked_titles: Optional[List[str]] = None,
         excluded_movie_ids: Optional[List[int]] = None,
     ) -> Dict[str, Any]:
-        positive_ids = {safe_int(movie_id) for movie_id in liked_movie_ids or [] if movie_id is not None}
+        if self.movies_df is None:
+            return {
+                "positive_ids": set(),
+                "negative_ids": set(),
+                "positive_indices": [],
+                "genre_counter": Counter(),
+                "director_counter": Counter(),
+                "cast_counter": Counter(),
+                "taste_vector": None,
+            }
+        positive_ids = {
+            safe_int(movie_id)
+            for movie_id in liked_movie_ids or []
+            if movie_id is not None
+        }
         positive_ids.update(self._resolve_movie_ids_from_titles(liked_titles))
-        negative_ids = {safe_int(movie_id) for movie_id in excluded_movie_ids or [] if movie_id is not None}
+        negative_ids = {
+            safe_int(movie_id)
+            for movie_id in excluded_movie_ids or []
+            if movie_id is not None
+        }
 
         if user_id is not None:
             db_positive_ids, db_negative_ids = self._fetch_user_feedback(user_id)
@@ -852,7 +974,9 @@ class EnhancedRecommendationEngine:
 
         for movie_idx in positive_indices:
             row = self.movies_df.iloc[movie_idx]
-            genre_counter.update(g.casefold() for g in split_genres(safe_str(row.get("genres", ""))))
+            genre_counter.update(
+                g.casefold() for g in split_genres(safe_str(row.get("genres", "")))
+            )
 
             director = safe_str(row.get("director", "")).casefold()
             if director:
@@ -875,7 +999,9 @@ class EnhancedRecommendationEngine:
         if positive_vector is not None and negative_vector is not None:
             # Rocchio-style relevance feedback:
             # keep what the user likes and explicitly push away low-rated items.
-            taste_vector = self._ensure_sparse_vector(positive_vector - (0.35 * negative_vector))
+            taste_vector = self._ensure_sparse_vector(
+                positive_vector - (0.35 * negative_vector)
+            )
 
         return {
             "positive_ids": positive_ids,
@@ -889,7 +1015,9 @@ class EnhancedRecommendationEngine:
 
     def _profile_affinity_score(self, row: pd.Series, profile: Dict[str, Any]) -> float:
         score = 0.0
-        movie_genres = {g.casefold() for g in split_genres(safe_str(row.get("genres", "")))}
+        movie_genres = {
+            g.casefold() for g in split_genres(safe_str(row.get("genres", "")))
+        }
         score += sum(profile["genre_counter"].get(genre, 0) for genre in movie_genres)
 
         director = safe_str(row.get("director", "")).casefold()
@@ -897,7 +1025,9 @@ class EnhancedRecommendationEngine:
             score += profile["director_counter"].get(director, 0) * 2.5
 
         cast_terms = self._split_terms(safe_str(row.get("cast", "")))
-        score += 0.2 * sum(profile["cast_counter"].get(actor, 0) for actor in cast_terms)
+        score += 0.2 * sum(
+            profile["cast_counter"].get(actor, 0) for actor in cast_terms
+        )
         return float(score)
 
     def _semantic_boost_lookup(
@@ -908,9 +1038,7 @@ class EnhancedRecommendationEngine:
 
         raw_scores = np.array(
             [
-                safe_float(
-                    candidate.get("rerank_score", candidate.get("score", 0.0))
-                )
+                safe_float(candidate.get("rerank_score", candidate.get("score", 0.0)))
                 for candidate in semantic_candidates
             ],
             dtype=float,
@@ -973,10 +1101,9 @@ class EnhancedRecommendationEngine:
                         for selected in selected_positions
                     )
 
-                mmr_score = (
-                    (1 - diversity_weight) * safe_float(base_scores[position])
-                    - diversity_weight * similarity_penalty
-                )
+                mmr_score = (1 - diversity_weight) * safe_float(
+                    base_scores[position]
+                ) - diversity_weight * similarity_penalty
                 if mmr_score > best_score:
                     best_score = mmr_score
                     best_position = position
@@ -996,7 +1123,9 @@ class EnhancedRecommendationEngine:
         collaborative_score: float,
     ) -> str:
         reasons: List[str] = []
-        movie_genres = {g.casefold() for g in split_genres(safe_str(row.get("genres", "")))}
+        movie_genres = {
+            g.casefold() for g in split_genres(safe_str(row.get("genres", "")))
+        }
         matched_query_genres = movie_genres & query_context.get("genres", set())
 
         if matched_query_genres:
@@ -1019,14 +1148,16 @@ class EnhancedRecommendationEngine:
         elif safe_float(row.get("vote_average", 0)) >= 8:
             reasons.append("Strong audience reception")
 
-        return "; ".join(reasons[:2]) if reasons else "Recommended from your taste profile"
+        return (
+            "; ".join(reasons[:2]) if reasons else "Recommended from your taste profile"
+        )
 
-    def get_content_recommendations(
-        self, movie_id: int, limit: int = 10
-    ) -> List[Dict]:
+    def get_content_recommendations(self, movie_id: int, limit: int = 10) -> List[Dict]:
         """Get content-based recommendations."""
         if self.content_matrix is None and self.similarity_matrix is None:
             return self.get_hybrid_recommendations(movie_id=movie_id, limit=limit)
+        if self.movies_df is None:
+            return []
 
         matches = self.movies_df[self.movies_df.id == movie_id]
         if len(matches) == 0:
@@ -1037,6 +1168,7 @@ class EnhancedRecommendationEngine:
         if self.similarity_matrix is not None:
             scores = list(enumerate(self.similarity_matrix[movie_idx]))
         else:
+            assert self.content_matrix is not None
             similarity_scores = linear_kernel(
                 self.content_matrix, self.content_matrix[movie_idx]
             ).ravel()
@@ -1071,7 +1203,7 @@ class EnhancedRecommendationEngine:
                 movie_id in self.collab_predictions.columns
                 and user_id in self.collab_predictions.index
             ):
-                return float(self.collab_predictions.loc[user_id, movie_id])
+                return float(cast(Any, self.collab_predictions.loc[user_id, movie_id]))
         except (ValueError, KeyError, TypeError, AttributeError):
             # Gracefully handle missing predictions for new users/movies
             pass
@@ -1102,7 +1234,9 @@ class EnhancedRecommendationEngine:
             return cached
 
         source_movie = self.get_movie_by_id(movie_id)
-        if not source_movie or (self.similarity_matrix is None and self.content_matrix is None):
+        if not source_movie or (
+            self.similarity_matrix is None and self.content_matrix is None
+        ):
             return self.get_trending(limit)
 
         try:
@@ -1116,6 +1250,7 @@ class EnhancedRecommendationEngine:
         if self.similarity_matrix is not None:
             content_scores = list(enumerate(self.similarity_matrix[movie_idx]))
         else:
+            assert self.content_matrix is not None
             content_scores = list(
                 enumerate(
                     linear_kernel(
@@ -1129,7 +1264,7 @@ class EnhancedRecommendationEngine:
 
         # Calculate hybrid scores
         results = []
-        seen_genres = Counter()
+        seen_genres: Counter[str] = Counter()
 
         for idx, content_score in content_scores:
             row = self.movies_df.iloc[idx]
@@ -1137,7 +1272,9 @@ class EnhancedRecommendationEngine:
                 continue
 
             movie_dict = self._movie_to_dict(row)
-            movie_genres = {g.casefold() for g in split_genres(movie_dict.get("genres", ""))}
+            movie_genres = {
+                g.casefold() for g in split_genres(movie_dict.get("genres", ""))
+            }
 
             # Score components
             collab_score = (
@@ -1192,8 +1329,12 @@ class EnhancedRecommendationEngine:
         reasons = []
 
         # Check genre overlap
-        source_genres = {g.casefold() for g in split_genres(safe_str(source.get("genres", "")))}
-        target_genres = {g.casefold() for g in split_genres(safe_str(target.get("genres", "")))}
+        source_genres = {
+            g.casefold() for g in split_genres(safe_str(source.get("genres", "")))
+        }
+        target_genres = {
+            g.casefold() for g in split_genres(safe_str(target.get("genres", "")))
+        }
         common_genres = source_genres & target_genres
 
         if common_genres:
@@ -1296,6 +1437,7 @@ class EnhancedRecommendationEngine:
                 "applied_signals": [],
                 "recommendations": [],
             }
+        movies_df = self.movies_df
 
         cache_key = RedisRecommendationCache._generate_cache_key(
             "discover",
@@ -1328,19 +1470,22 @@ class EnhancedRecommendationEngine:
         excluded_ids.update(safe_int(movie_id) for movie_id in excluded_movie_ids or [])
         applied_signals: List[str] = []
 
-        mask = self.movies_df["vote_average"] >= min_rating
+        mask = movies_df["vote_average"] >= min_rating
         if excluded_ids:
-            mask &= ~self.movies_df["id"].isin(excluded_ids)
+            mask &= ~movies_df["id"].isin(excluded_ids)
 
         # Apply language filter when query specifies a language
         if query_context.get("language"):
             lang_code = query_context["language"]
-            lang_mask = self.movies_df["original_language"].astype(str).str.strip().str.lower() == lang_code
+            lang_mask = (
+                movies_df["original_language"].astype(str).str.strip().str.lower()
+                == lang_code
+            )
             if lang_mask.any():
                 mask &= lang_mask
                 applied_signals.append(f"language:{lang_code}")
 
-        candidate_df = self.movies_df[mask]
+        candidate_df = movies_df[mask]
         if candidate_df.empty:
             return {
                 "query_movie": query,
@@ -1369,7 +1514,9 @@ class EnhancedRecommendationEngine:
             )
             if query_vector is not None:
                 query_scores_scaled = self._scale_scores(
-                    linear_kernel(self.content_matrix[candidate_positions], query_vector).ravel()
+                    linear_kernel(
+                        self.content_matrix[candidate_positions], query_vector
+                    ).ravel()
                 )
                 base_scores += query_scores_scaled * 0.33
                 applied_signals.append("query_intent")
@@ -1385,7 +1532,7 @@ class EnhancedRecommendationEngine:
 
         metadata_scores = np.array(
             [
-                self._profile_affinity_score(self.movies_df.iloc[position], profile)
+                self._profile_affinity_score(movies_df.iloc[position], profile)
                 for position in candidate_positions
             ],
             dtype=float,
@@ -1398,9 +1545,7 @@ class EnhancedRecommendationEngine:
         if semantic_boosts:
             semantic_scores = np.array(
                 [
-                    semantic_boosts.get(
-                        safe_int(self.movies_df.iloc[position]["id"]), 0.0
-                    )
+                    semantic_boosts.get(safe_int(movies_df.iloc[position]["id"]), 0.0)
                     for position in candidate_positions
                 ],
                 dtype=float,
@@ -1413,7 +1558,12 @@ class EnhancedRecommendationEngine:
             # Proper set intersection now that genres are pipe-delimited and
             # multi-word genres like "Science Fiction" are preserved as single tokens
             def _genre_match(position: int) -> float:
-                movie_genres = {g.casefold() for g in split_genres(safe_str(self.movies_df.iloc[position].get("genres", "")))}
+                movie_genres = {
+                    g.casefold()
+                    for g in split_genres(
+                        safe_str(movies_df.iloc[position].get("genres", ""))
+                    )
+                }
                 return 1.0 if movie_genres & query_context["genres"] else 0.0
 
             genre_match_bonus = np.array(
@@ -1432,13 +1582,15 @@ class EnhancedRecommendationEngine:
             kw_set = query_context["keywords"]
 
             def _keyword_score(position: int) -> float:
-                row = self.movies_df.iloc[position]
-                searchable = " ".join([
-                    safe_str(row.get("title", "")),
-                    safe_str(row.get("overview", "")),
-                    safe_str(row.get("keywords", "")),
-                    safe_str(row.get("genres", "")),
-                ]).casefold()
+                row = movies_df.iloc[position]
+                searchable = " ".join(
+                    [
+                        safe_str(row.get("title", "")),
+                        safe_str(row.get("overview", "")),
+                        safe_str(row.get("keywords", "")),
+                        safe_str(row.get("genres", "")),
+                    ]
+                ).casefold()
                 hits = sum(1 for kw in kw_set if kw in searchable)
                 return hits / len(kw_set) if kw_set else 0.0
 
@@ -1455,7 +1607,7 @@ class EnhancedRecommendationEngine:
                 [
                     np.clip(
                         self.get_collaborative_score(
-                            user_id, safe_int(self.movies_df.iloc[position]["id"])
+                            user_id, safe_int(movies_df.iloc[position]["id"])
                         )
                         / 10,
                         0.0,
@@ -1470,7 +1622,7 @@ class EnhancedRecommendationEngine:
                 applied_signals.append("collaborative")
 
         for idx, position in enumerate(candidate_positions):
-            row = self.movies_df.iloc[position]
+            row = movies_df.iloc[position]
             quality_scores[idx] = self._get_quality_score(row)
             popularity_scores[idx] = self._get_popularity_score(row)
 
@@ -1482,18 +1634,21 @@ class EnhancedRecommendationEngine:
         # Half-life=1.5yr → movies <1yr get ~1.18x, 2yr ~1.07x, 5yr ~1.0x
         try:
             release_dates = pd.to_datetime(
-                self.movies_df.iloc[candidate_positions]["release_date"], errors="coerce"
+                movies_df.iloc[candidate_positions]["release_date"],
+                errors="coerce",
             )
             now = pd.Timestamp.now()
             age_years = (now - release_dates).dt.total_seconds() / (365.25 * 86400)
-            age_years = age_years.fillna(20.0).clip(lower=0).values
-            recency_boost = 0.20 * np.exp(-age_years / 1.5)
+            age_years_arr = age_years.fillna(20.0).clip(lower=0).to_numpy()
+            recency_boost = 0.20 * np.exp(-age_years_arr / 1.5)
             base_scores += recency_boost
             applied_signals.append("recency_boost")
         except Exception:
             pass  # graceful degradation
 
-        if not applied_signals or (base_scores.size > 0 and float(base_scores.max()) <= 0.0):
+        if not applied_signals or (
+            base_scores.size > 0 and float(base_scores.max()) <= 0.0
+        ):
             trending = self.get_trending(limit)
             response = {
                 "query_movie": query,
@@ -1508,12 +1663,14 @@ class EnhancedRecommendationEngine:
 
         candidate_pool_size = min(candidate_count, max(limit * 12, 60))
         ranked_positions = np.argsort(base_scores)[::-1][:candidate_pool_size]
-        top_candidate_indices = [int(candidate_positions[position]) for position in ranked_positions]
+        top_candidate_indices = [
+            int(candidate_positions[position]) for position in ranked_positions
+        ]
         top_base_scores = base_scores[ranked_positions]
         top_payloads: List[Dict[str, Any]] = []
 
         for position, movie_idx in zip(ranked_positions, top_candidate_indices):
-            row = self.movies_df.iloc[movie_idx]
+            row = movies_df.iloc[movie_idx]
             movie = self._movie_to_dict(row)
 
             semantic_component = max(
@@ -1528,12 +1685,16 @@ class EnhancedRecommendationEngine:
 
             movie.update(
                 {
-                    "content_score": round(float(query_scores_scaled[position]) * 100, 1),
+                    "content_score": round(
+                        float(query_scores_scaled[position]) * 100, 1
+                    ),
                     "semantic_score": round(semantic_component * 100, 1),
                     "profile_score": round(profile_component * 100, 1),
                     "collaborative_score": round(collaborative_component * 100, 1),
                     "quality_score": round(float(quality_scores[position]) * 100, 1),
-                    "popularity_score": round(float(popularity_scores[position]) * 100, 1),
+                    "popularity_score": round(
+                        float(popularity_scores[position]) * 100, 1
+                    ),
                     "hybrid_score": round(hybrid_component * 100, 1),
                     "reason": self._generate_discovery_reason(
                         row,
@@ -1610,7 +1771,9 @@ class EnhancedRecommendationEngine:
         df = self.movies_df.copy()
         df = df[df["release_date"].notna() & (df["release_date"] != "")]
         df = df[df["release_date"] >= "2024-01-01"]
-        latest_movies = df.sort_values(by=["release_date", "vote_average"], ascending=[False, False]).head(limit)
+        latest_movies = df.sort_values(
+            by=["release_date", "vote_average"], ascending=[False, False]
+        ).head(limit)
 
         results = []
         for _, row in latest_movies.iterrows():
@@ -1651,7 +1814,13 @@ class EnhancedRecommendationEngine:
             # Apply language filter if detected
             if query_context.get("language"):
                 lang_code = query_context["language"]
-                lang_mask = self.movies_df["original_language"].astype(str).str.strip().str.lower() == lang_code
+                lang_mask = (
+                    self.movies_df["original_language"]
+                    .astype(str)
+                    .str.strip()
+                    .str.lower()
+                    == lang_code
+                )
                 if lang_mask.any():
                     mask &= lang_mask
 
@@ -1659,7 +1828,9 @@ class EnhancedRecommendationEngine:
             if query_context.get("genres"):
                 genre_mask = np.zeros(len(self.movies_df), dtype=bool)
                 for g in query_context["genres"]:
-                    genre_mask |= self.movies_df["genres_normalized"].str.contains(g, na=False, regex=False)
+                    genre_mask |= self.movies_df["genres_normalized"].str.contains(
+                        g, na=False, regex=False
+                    )
                 if genre_mask.any():
                     mask &= genre_mask
 
@@ -1672,10 +1843,19 @@ class EnhancedRecommendationEngine:
                 for word in search_words:
                     if len(word) < 2:
                         continue
-                    word_mask |= self.movies_df["title_normalized"].str.contains(word, na=False, regex=False)
-                    word_mask |= self.movies_df["genres_normalized"].str.contains(word, na=False, regex=False)
+                    word_mask |= self.movies_df["title_normalized"].str.contains(
+                        word, na=False, regex=False
+                    )
+                    word_mask |= self.movies_df["genres_normalized"].str.contains(
+                        word, na=False, regex=False
+                    )
                     if "overview" in self.movies_df.columns:
-                        word_mask |= self.movies_df["overview"].astype(str).str.lower().str.contains(word, na=False, regex=False)
+                        word_mask |= (
+                            self.movies_df["overview"]
+                            .astype(str)
+                            .str.lower()
+                            .str.contains(word, na=False, regex=False)
+                        )
                 mask &= word_mask
 
         if genre:
@@ -1722,11 +1902,15 @@ class EnhancedRecommendationEngine:
 
             # Add recency boost: recent movies (past 2-3 years) get priority
             try:
-                release_dates = pd.to_datetime(filtered_df["release_date"], errors="coerce")
+                release_dates = pd.to_datetime(
+                    filtered_df["release_date"], errors="coerce"
+                )
                 now = pd.Timestamp.now()
                 age_years = (now - release_dates).dt.total_seconds() / (365.25 * 86400)
                 age_years = age_years.fillna(20.0).clip(lower=0)
-                recency_boost = 1.5 * np.exp(-age_years / 1.5)  # +1.5 points for brand new
+                recency_boost = 1.5 * np.exp(
+                    -age_years / 1.5
+                )  # +1.5 points for brand new
                 weighted = weighted + recency_boost
             except Exception:
                 pass
@@ -1734,16 +1918,20 @@ class EnhancedRecommendationEngine:
             sort_indices = weighted.argsort()[::-1]
             paged_df = filtered_df.iloc[sort_indices[offset : offset + limit]]
         else:
-            paged_df = filtered_df.sort_values(sort_col, ascending=ascending, na_position="last").iloc[
-                offset : offset + limit
-            ]
+            paged_df = filtered_df.sort_values(
+                sort_col, ascending=ascending, na_position="last"
+            ).iloc[offset : offset + limit]
 
         results = [self._movie_to_dict(row) for _, row in paged_df.iterrows()]
         return results, total
 
     def get_genres(self) -> List[Dict]:
         """Return precomputed genres (Efficiency: PERFORMANCE_PROTOCOL.md)."""
-        if self.movies_df is None or self.movies_df.empty or not hasattr(self, "genre_list_detailed"):
+        if (
+            self.movies_df is None
+            or self.movies_df.empty
+            or not hasattr(self, "genre_list_detailed")
+        ):
             return []
         return self.genre_list_detailed
 
@@ -1787,7 +1975,6 @@ class EnhancedRecommendationEngine:
         return similar_users[:limit]
 
 
-
 # Global engine instance
 _engine: Optional[EnhancedRecommendationEngine] = None
 _engine_lock = threading.Lock()
@@ -1809,10 +1996,13 @@ def start_engine_warmup() -> None:
         thread = threading.Thread(target=_background_init, daemon=True)
         thread.start()
 
+
 def _background_init():
     """Background initialization for the recommendation engine."""
     global _engine, _engine_init_started
-    logger.info("🚀 Starting background recommendation engine initialization (1.2M+ records)...")
+    logger.info(
+        "🚀 Starting background recommendation engine initialization (1.2M+ records)..."
+    )
     try:
         temp_engine = EnhancedRecommendationEngine()
         temp_engine.load_data().train()
@@ -1824,6 +2014,7 @@ def _background_init():
         with _engine_lock:
             _engine_init_started = False
 
+
 def get_engine() -> EnhancedRecommendationEngine:
     """Get the recommendation engine. Returns a shared placeholder while loading."""
     if _engine is None:
@@ -1831,6 +2022,7 @@ def get_engine() -> EnhancedRecommendationEngine:
             start_engine_warmup()
         return _placeholder_engine
     return _engine
+
 
 def reset_engine():
     """Reset the global engine."""

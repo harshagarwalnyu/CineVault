@@ -24,6 +24,7 @@ class ExplainabilityEngine:
         if self._client is None and settings.GEMINI_API_KEY:
             try:
                 from google import genai
+
                 self._client = genai.Client(api_key=settings.GEMINI_API_KEY)
             except Exception:
                 pass
@@ -42,7 +43,9 @@ class ExplainabilityEngine:
         genres = str(movie.get("genres", ""))
 
         # Identify dominant signal
-        dominant_signal = max(scores, key=scores.get, default=None) if scores else None
+        dominant_signal = (
+            max(scores, key=lambda k: scores[k], default=None) if scores else None
+        )
 
         if dominant_signal == "two_tower":
             reasons.append("Users with your taste profile love this one")
@@ -71,14 +74,18 @@ class ExplainabilityEngine:
 
         # Quality signal
         if vote_avg >= 8.0 and vote_count < 5000:
-            reasons.append(f"Hidden gem: only {vote_count:,} ratings but {vote_avg} average")
+            reasons.append(
+                f"Hidden gem: only {vote_count:,} ratings but {vote_avg} average"
+            )
         elif vote_avg >= 8.0:
             reasons.append(f"Critically acclaimed ({vote_avg}/10)")
 
         # Collaborative signal
         collab_score = scores.get("collaborative", 0)
         if collab_score >= 0.7:
-            reasons.append(f"Users with similar taste rate this {round(collab_score * 5, 1)}/5")
+            reasons.append(
+                f"Users with similar taste rate this {round(collab_score * 5, 1)}/5"
+            )
 
         if not reasons:
             if genres:

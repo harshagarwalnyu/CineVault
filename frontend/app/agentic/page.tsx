@@ -67,7 +67,7 @@ export default function AgenticDiscovery() {
 
     const SpeechRecognition = (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-    
+
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
@@ -79,13 +79,13 @@ export default function AgenticDiscovery() {
       }, 500);
     };
     recognition.onend = () => setIsListening(false);
-    
+
     recognition.start();
   };
 
   // Intent Blocks
   const SingleFocusHero = ({ rec }: { rec: Recommendation }) => (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className="flex flex-col items-center justify-center h-full min-h-[60vh] text-center max-w-4xl mx-auto p-8"
@@ -94,7 +94,7 @@ export default function AgenticDiscovery() {
         {rec.title}
       </h2>
       <p className="text-2xl text-gray-300 mb-12 leading-relaxed">{rec.overview}</p>
-      
+
       {/* Explainability Payload (Neurosymbolic Node) */}
       <div className="flex flex-wrap gap-4 justify-center mb-12">
         {rec.why_you_will_like_it?.map((reason, idx) => (
@@ -106,7 +106,7 @@ export default function AgenticDiscovery() {
 
       {/* The Zero-Click Moat */}
       {rec.availability?.primary_action && (
-        <a 
+        <a
           href={rec.availability.primary_action.deep_link}
           target="_blank"
           className="group relative inline-flex items-center justify-center px-12 py-6 text-xl font-bold text-white transition-all duration-200"
@@ -122,7 +122,7 @@ export default function AgenticDiscovery() {
   const DetailCards = ({ recs }: { recs: Recommendation[] }) => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-8 max-w-7xl mx-auto">
       {recs.map((rec, i) => (
-        <motion.div 
+        <motion.div
           key={i}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -132,9 +132,9 @@ export default function AgenticDiscovery() {
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
           <h3 className="text-2xl font-bold mb-4">{rec.title}</h3>
           <p className="text-gray-400 text-sm line-clamp-3 mb-6">{rec.overview}</p>
-          
+
           {rec.availability?.primary_action && (
-            <a 
+            <a
               href={rec.availability.primary_action.deep_link}
               target="_blank"
               className="flex w-full items-center justify-center py-3 bg-white/10 hover:bg-white/20 rounded-xl font-medium transition-colors mt-auto"
@@ -150,17 +150,17 @@ export default function AgenticDiscovery() {
   return (
     <div className="min-h-screen bg-black text-white selection:bg-purple-500/30 font-sans">
       {/* Dynamic Header/Search Bar */}
-      <motion.div 
+      <motion.div
         layout
         className={`w-full max-w-3xl mx-auto p-6 flex flex-col items-center ${result ? 'pt-8' : 'pt-[30vh]'}`}
       >
-        <motion.h1 
+        <motion.h1
           layout="position"
           className="text-4xl font-light tracking-tight mb-8 text-center"
         >
           What's your <span className="font-semibold italic text-purple-400">vibe</span> tonight?
         </motion.h1>
-        
+
         <form id="agentic-form" onSubmit={handleSearch} className="w-full relative flex items-center">
           <input
             type="text"
@@ -170,14 +170,14 @@ export default function AgenticDiscovery() {
             className="w-full bg-white/5 border border-white/10 rounded-full px-8 py-5 text-lg outline-none focus:border-purple-500/50 focus:bg-white/10 transition-all placeholder:text-gray-600 backdrop-blur-xl pr-32"
           />
           <div className="absolute right-4 flex items-center gap-2">
-            <button 
+            <button
               type="button"
               onClick={handleVoice}
               className={`p-3 rounded-full transition-colors ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : 'hover:bg-white/10 text-gray-400'}`}
             >
               <Mic className="w-5 h-5" />
             </button>
-            <button 
+            <button
               type="submit"
               disabled={loading}
               className="p-3 bg-white text-black rounded-full hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
@@ -191,7 +191,7 @@ export default function AgenticDiscovery() {
       {/* Generative UI Rendering Area */}
       <AnimatePresence mode="wait">
         {result && (
-          <motion.div 
+          <motion.div
             key="results"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
